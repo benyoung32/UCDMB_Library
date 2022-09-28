@@ -3,6 +3,7 @@ import os
 import glob
 import pathlib
 import my_prompt
+import pdf_reader
 from tkinterdnd2 import *
 from tkinter import *
 from tkinter.scrolledtext import ScrolledText
@@ -28,32 +29,45 @@ buttonbox = Frame(root)
 buttonbox.grid(row=2, column=0, columnspan=2, pady=5)
 
 def add_files(filepaths):
-    for filepath in filepaths:
-        path = pathlib.PurePath(filepath)
-        filedict.append(path.name, path)
+    for f in filepaths:
+        if os.path.exists(f):
+            if os.path.isdir(f):
+                add_files(glob.glob(f + "/*.pdf"))
+            if '.pdf' in f and (not os.path.basename(f) in filedict):
+                listbox.insert('end', os.path.basename(f))
+                filedict[os.path.basename(f)] = f
 
-def delete_files(first, last):
-
-    paths = listbox.get(first, last)
+def remove_files(range, delete = False):
+    paths = listbox.get(range[0], range[1])
+    listbox.delete(range[0], range[1])
     for path in paths:
         filedict.pop(path)
-    #listbox.
-
-def open_selection():
+        if delete:
+            os.remove(path)
+def get_sel():
     if len((sel := listbox.curselection())) > 0:
-        pass
+        return (min(sel), max(sel))
 
+def create_pdf():
+    range = get_sel()
+    print(range)
+    prompt = my_prompt.MyPrompt(root, 'how many', listbox.get(range[0], range[1]))
+    print(prompt.result)
+
+def conv_pdf():
+    range = get_sel()
+    files = listbox.get(range[0], range[1])
+    paths = [filedict[file] for file in files]
+    add_files(pdf_reader.process_docs(paths))
+
+# open folder using system file explorer
 def open_folder():
-    # get folder using file explorer
     answer = filedialog.askdirectory(parent=root,
                                  initialdir=os.getcwd(),
                                  title="Please select a folder:")
     filenames = []
     if answer: # check if not empty 
-        print(answer)
-        for file in glob.glob(answer + "/*.pdf"):
-            filenames.append(file)
-    prompt = my_prompt.MyPrompt(root, 'how many', filenames)
+        add_files([answer])
     return filenames
 
 listbox = Listbox(root, name='dnd_demo_listbox',
@@ -62,10 +76,16 @@ listbox.grid(row=1, column=0, padx=5, pady=5, sticky='news')
 
 Button(buttonbox, text='Quit', command=root.quit).pack(
                     side=LEFT, padx=5)
-Button(buttonbox, text='Delete Selected', command = (lambda : delete_files(listbox.curselection))).pack(
+Button(buttonbox, text='Delete Selected', command = (lambda : remove_files(get_sel(), True))).pack(
+                    side=LEFT, padx=5)
+Button(buttonbox, text='Remove Selected', command = (lambda : remove_files(get_sel()))).pack(
                     side=LEFT, padx=5)
 Button(buttonbox, text='Open Folder', command=open_folder).pack(
-                    side=LEFT, padx=10)
+                    side=LEFT, padx=5)
+Button(buttonbox, text='Create PDF', command=create_pdf).pack(
+                    side=LEFT, padx=5)
+Button(buttonbox, text='Convert PDF', command=conv_pdf).pack(
+                    side=LEFT, padx=5)
 
 
 
@@ -89,24 +109,11 @@ def drop_leave(event):
 
 def drop(event):
     if event.data:
-        # print('Dropped data:\n', event.data)
         #print_event_info(event)
         if event.widget == listbox:
-            # event.data is a list of filenames as one string;
-            # if one of these filenames contains whitespace characters
-            # it is rather difficult to reliably tell where one filename
-            # ends and the next begins; the best bet appears to be
-            # to count on tkdnd's and tkinter's internal magic to handle
-            # such cases correctly; the following seems to work well
-            # at least with Windows and Gtk/X11
             files = listbox.tk.splitlist(event.data)
-            for f in files:
-                if os.path.exists(f):
-                    # print('Dropped file: "%s"' % f)
-                    listbox.insert('end', f)
-                else:
-                    print('Not dropping file "%s": file does not exist.' % f)
-
+            #print(files)
+            add_files(files)
         else:
             print('Error: reported event.widget not known')
     return event.action
@@ -136,9 +143,6 @@ def drag_init_listbox(event):
     return ((ASK, COPY), (DND_FILES, DND_TEXT), data)
 
 def drag_end(event):
-    #print_event_info(event)
-    # this callback is not really necessary if it doesn't do anything useful
-    #print('Drag ended for widget:', event.widget)
     pass
 
 # finally make the widgets a drag source
