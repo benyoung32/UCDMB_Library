@@ -1,2 +1,2 @@
-src_pix, rotate = 90, xref = img_xref)
-        src_pix.save("page-%i.png" % page.number)
+ty doc
+    for page in src: # loop over each p

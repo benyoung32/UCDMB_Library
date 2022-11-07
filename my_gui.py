@@ -2,8 +2,9 @@
 import os
 import glob
 import pathlib
-import my_prompt
+import printer_prompt
 import pdf_reader
+import fitz
 from tkinterdnd2 import *
 from tkinter import *
 from tkinter.scrolledtext import ScrolledText
@@ -44,14 +45,20 @@ def remove_files(range, delete = False):
         filedict.pop(path)
         if delete:
             os.remove(path)
-def get_sel():
+def get_sel(get_one = False):
     if len((sel := listbox.curselection())) > 0:
+        if (get_one):
+            if len(sel) == 1:
+                return sel
+            else:
+                return -1
         return (min(sel), max(sel))
+    return -1
 
 def create_pdf():
     range = get_sel()
     print(range)
-    prompt = my_prompt.MyPrompt(root, 'how many', listbox.get(range[0], range[1]))
+    prompt = printer_prompt.PrinterPrompt(root, 'how many', listbox.get(range[0], range[1]))
     print(prompt.result)
 
 def conv_pdf():
@@ -70,6 +77,18 @@ def open_folder():
         add_files([answer])
     return filenames
 
+def draw_preview():
+    conv_pdf
+    range = get_sel()
+    files = listbox.get(range[0], range[1])
+    paths = [filedict[file] for file in files]
+    docs = pdf_reader.openDocuments(paths)
+    for path in paths:
+        doc = docs[path]
+        pixmap = pdf_reader.getImage(doc)
+        preview.create_image((0, 0), PhotoImage(data=pixmap[0].tobytes("ppm")))
+
+
 listbox = Listbox(root, name='dnd_demo_listbox',
                     selectmode='extended', width=1, height=1)
 listbox.grid(row=1, column=0, padx=5, pady=5, sticky='news')
@@ -80,14 +99,17 @@ Button(buttonbox, text='Delete Selected', command = (lambda : remove_files(get_s
                     side=LEFT, padx=5)
 Button(buttonbox, text='Remove Selected', command = (lambda : remove_files(get_sel()))).pack(
                     side=LEFT, padx=5)
-Button(buttonbox, text='Open Folder', command=open_folder).pack(
+Button(buttonbox, text='Preview', command=draw_preview).pack(
                     side=LEFT, padx=5)
 Button(buttonbox, text='Create PDF', command=create_pdf).pack(
                     side=LEFT, padx=5)
 Button(buttonbox, text='Convert PDF', command=conv_pdf).pack(
                     side=LEFT, padx=5)
+Button(buttonbox, text='Split PDF', command=lambda : split_pdf([get_sel(True)])).pack(
+                    side=LEFT, padx=5)
 
-
+preview = Canvas(root, name='preview_box', width=1, height=1)
+preview.grid(row=1, column=1, padx=5, pady=5, sticky='news')
 
 def drop_enter(event):
     event.widget.focus_force()
@@ -118,6 +140,7 @@ def drop(event):
             print('Error: reported event.widget not known')
     return event.action
 
+
 # now make the Listbox and Text drop targets
 listbox.drop_target_register(DND_FILES)
 
@@ -129,6 +152,10 @@ listbox.dnd_bind('<<Drop>>', drop)
     #widget.dnd_bind('<<Drop:DND_Text>>', drop)
 
 # define drag callbacks
+
+def split_pdf(index):
+    
+    pass
 
 def drag_init_listbox(event):
     # print_event_info(event)

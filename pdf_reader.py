@@ -1,34 +1,34 @@
 import fitz
 import os
 
+from numpy import full
+
+prefix = 'p_'
+
 def openFolder():
     for filename in os.listdir(os.getcwd()):
-        if filename.endswith(".pdf") and (not 'alt' in filename):
+        if filename.endswith(".pdf") and (not prefix in filename):
             doc = fitz.open(filename)
             alt = duplicateAndScale(doc)
             doc.close()
-            alt.save("alt_" + filename, deflate = True, deflate_images = True, garbage = 4, clean = True)
+            alt.save("prefix" + filename, deflate = True, deflate_images = True, garbage = 4, clean = True)
 
 def clearAlt():
     for filename in os.listdir(os.getcwd()):
-        if filename.endswith('.pdf') and ('alt' in filename):
+        if filename.endswith('.pdf') and (prefix in filename):
             os.remove(filename)
-            
+             
 def test():
-    # clearAlt()
-    # openFolder()
-    filename = 'example.pdf'
+    filename = 'example5.pdf'
     src = fitz.open(filename)
     # docs = openDocuments(['example.pdf', 'newfile.pdf', 'newfile2.pdf'])
     # print(docs)
     # closeDocuments(docs)
-    new_doc = duplicateAndScale(src)
-    new_doc.save('newfile2.pdf')
-    new_doc.close()
+    process_docs(filename)
     src.close()
 
 # open, convert, close and save list of filenames
-def process_docs(filenames, prefix = "alt_"):
+def process_docs(filenames, prefix = prefix):
     if not type(filenames) == list:
         filenames = [filenames]
     new_files = []
@@ -44,28 +44,56 @@ def process_docs(filenames, prefix = "alt_"):
     return new_files
 
 # convert a4 size paper to two a5 sized documents
-def duplicateAndScale(src):
+def duplicateAndScale(src, two_in_one = False, full_size = False, expand = True, rotate = 0):
     doc = fitz.open() # create new empty doc
-    # loop over each page
-    for page in src:
-        # ensure page is not rotated
+    for page in src: # loop over each page
+        page.set_rotation(rotate)   # ensure page is rotated correctly
         new_page = doc.new_page() # create new empty page
-        r = new_page.bound()
-        # crop page in half if necessary
-        mg = 10
-        # only use one
-        #page.set_cropbox(fitz.Rect(0, 0, r.x1, 0))
-        #page.set_cropbox(fitz.Rect(mg, mg/2, r.x1-mg, (r.y1 / 2) -mg + (mg / 8)))
-        #page.set_cropbox(fitz.Rect(mg, 20, r.x1-mg, -mg + 5))
-        page.set_rotation(0)
-        src_pix = page.get_pixmap(dpi = 300)
-        new_page.insert_image(fitz.Rect(0, 0, r.x1 * .85, r.y1 / 2), pixmap= src_pix)
-        new_page.insert_image(fitz.Rect(0, r.y1 / 2, r.x1 * 0.85, r.y1), pixmap= src_pix)
-    return doc
+        r = page.mediabox
+        side_mg = 200
+        top_mg = 0
+        
+        if full_size: # only use one
+            croprect = fitz.Rect(side_mg, top_mg, r.x1-side_mg, r.y1-top_mg)
+        elif rotate == 0: 
+            # croprect = fitz.Rect(10, top_mg, r.x1 - side_mg, r.y1 / 2 - top_mg)
+            croprect = fitz.Rect(20, 40, r.x1 - 300, r.y1 - 275)
+        else:
+            croprect = fitz.Rect(r.x1 / 2 - top_mg, side_mg, r.x1 - top_mg, r.y1 - side_mg)
+        
+        if two_in_one: # for duplicating ones that are already half size and two pages
+            page.set_cropbox(croprect)
+            src_pix = page.get_pixmap(dpi = 300)
+            ins_image(new_page, src_pix, expand, rotate)
+            if expand: 
+                page.set_cropbox(fitz.Rect(0, top_mg, r.x1 / 2 - side_mg, r.y1-top_mg))
+                src_pix2 = page.get_pixmap(dpi = 300)
+                new_page2 = doc.new_page()
+                ins_image(new_page2, src_pix2, expand,rotate)
+        else: # for duplicating ones that are already half size
+            page.set_cropbox(fitz.Rect(croprect))
+            src_pix = page.get_pixmap(dpi = 300)
+            ins_image(new_page, src_pix, expand, rotate)
+    return doc 
 
-def rotateDoc(src):
+def ins_image(page, src_pix, expand = False, rotate = 0):
+    r = page.bound()
+    if expand:
+        page.set_rotation(90)
+        page.insert_image(r, pixmap= src_pix, rotate = 90)
+    else:
+        page.insert_image(fitz.Rect(0, 0, r.x1 * .85, r.y1 / 2 - 20), pixmap= src_pix, rotate = rotate)
+        page.insert_image(fitz.Rect(0, r.y1 / 2, r.x1 * 0.85, r.y1 - 20), pixmap= src_pix, rotate = rotate)
+
+def rotateDoc(src: fitz.Document):
     for page in src:
        page.set_rotation(90)
+
+def getImage(src: fitz.Document):
+    imgs = []
+    for page in src:
+        imgs.append(page.get_pixmap(dpi = 300))
+    return imgs
 
 # open given list of filenames into document objects 
 def openDocuments(filenames):
@@ -78,5 +106,4 @@ def closeDocuments(docs):
 if __name__ == "__main__":
     print('going')
     test()
-
 
