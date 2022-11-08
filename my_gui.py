@@ -108,21 +108,39 @@ Button(buttonbox, text='Convert PDF', command=conv_pdf).pack(
 Button(buttonbox, text='Split PDF', command=lambda : split_pdf([get_sel(True)])).pack(
                     side=LEFT, padx=5)
 
-preview = Canvas(root, name='preview_box', width=1, height=1)
+def validate(s):
+        if str.isdigit(s) or s == '':
+            return True
+        else:
+            return False
+
+preview = Canvas(root, name='preview_box', width=500, height=500, bg= 'red')
 preview.grid(row=1, column=1, padx=5, pady=5, sticky='news')
+preview_entry_frame = Frame(preview, width =200, height = 200)
+preview_entry_frame.grid(row = 0, column=0, padx= 10, pady =10, sticky = 'swen')
+
+vcmd = (preview_entry_frame.register(validate))
+entry_leftmg = Entry(preview_entry_frame, validate= 'all',  validatecommand=
+            (vcmd, '%P')).pack()
+entry_topmg = Entry(preview_entry_frame, validate= 'all',  validatecommand=
+            (vcmd, '%P')).pack()
+entry_rightmg = Entry(preview_entry_frame, validate= 'all',  validatecommand=
+            (vcmd, '%P')).pack()
+entry_bottommg = Entry(preview_entry_frame, validate= 'all',  validatecommand=
+            (vcmd, '%P')).pack()
+preview_entry_frame.pack()
+
 
 def drop_enter(event):
     event.widget.focus_force()
     # print('Entering widget: %s' % event.widget)
     #print_event_info(event)
     return event.action
-    # pass
 
 def drop_position(event):
     # print('Position: x %d, y %d' %(event.x_root, event.y_root))
     #print_event_info(event)
     return event.action
-    # pass
 
 def drop_leave(event):
     #print('Leaving %s' % event.widget)

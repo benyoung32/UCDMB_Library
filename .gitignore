@@ -1,2 +1,4 @@
 example.pdf
 newfile.pdf
+example*.pdf
+p_*.pdf

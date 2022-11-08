@@ -19,23 +19,24 @@ def clearAlt():
             os.remove(filename)
              
 def test():
-    filename = 'example5.pdf'
-    src = fitz.open(filename)
+    filename = 'pdfs\example5.pdf'
+    # src = fitz.open(filename)
     # docs = openDocuments(['example.pdf', 'newfile.pdf', 'newfile2.pdf'])
     # print(docs)
     # closeDocuments(docs)
-    process_docs(filename)
+    process_docs([filename], rotate = 0, two_in_one = False, expand= False, full_size = False,
+    left_mg = 0, right_mg = 0, top_mg = 0, bottom_mg = 0)
     src.close()
 
 # open, convert, close and save list of filenames
-def process_docs(filenames, prefix = prefix):
+def process_docs(filenames, prefix = prefix, **kwargs):
     if not type(filenames) == list:
         filenames = [filenames]
     new_files = []
     for file in filenames:
         doc = fitz.open(file)
-        alt = duplicateAndScale(doc)
-        new_filename = prefix + os.path.basename(file)
+        alt = duplicateAndScale(doc, **kwargs)
+        new_filename = 'pdfs/' + prefix + os.path.basename(file)
         alt.save(new_filename, deflate = True, deflate_images = True, garbage = 4, clean = True)
         doc.close()
         alt.close()
@@ -44,36 +45,38 @@ def process_docs(filenames, prefix = prefix):
     return new_files
 
 # convert a4 size paper to two a5 sized documents
-def duplicateAndScale(src, two_in_one = False, full_size = False, expand = True, rotate = 0):
+def duplicateAndScale(src : fitz.Document, **kwargs):
     doc = fitz.open() # create new empty doc
     for page in src: # loop over each page
-        page.set_rotation(rotate)   # ensure page is rotated correctly
+        page.set_rotation(kwargs["rotate"])   # ensure page is rotated correctly
         new_page = doc.new_page() # create new empty page
         r = page.mediabox
-        side_mg = 200
-        top_mg = 0
+        left_mg = kwargs["left_mg"] | 0
+        top_mg = kwargs["top_mg"] | 0
+        right_mg = kwargs["right_mg"] | 0
+        bottom_mg = kwargs["bottom_mg"] | 0
         
-        if full_size: # only use one
-            croprect = fitz.Rect(side_mg, top_mg, r.x1-side_mg, r.y1-top_mg)
-        elif rotate == 0: 
-            # croprect = fitz.Rect(10, top_mg, r.x1 - side_mg, r.y1 / 2 - top_mg)
-            croprect = fitz.Rect(20, 40, r.x1 - 300, r.y1 - 275)
+        if kwargs["two_in_one"]: # only use one
+            croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-bottom_mg)
+        elif kwargs["rotate"] == 0: 
+            croprect = fitz.Rect(left_mg, top_mg, r.x1 - right_mg, r.y1 / 2 - bottom_mg)
+            # croprect = fitz.Rect(20, 40, r.x1 - 300, r.y1 - 275)
         else:
-            croprect = fitz.Rect(r.x1 / 2 - top_mg, side_mg, r.x1 - top_mg, r.y1 - side_mg)
+            croprect = fitz.Rect(r.x1 / 2 - top_mg, bottom_mg, r.x1 - right_mg, r.y1 - right_mg)
         
-        if two_in_one: # for duplicating ones that are already half size and two pages
+        if kwargs["two_in_one"]: # for duplicating ones that are already half size and two pages
             page.set_cropbox(croprect)
             src_pix = page.get_pixmap(dpi = 300)
-            ins_image(new_page, src_pix, expand, rotate)
-            if expand: 
-                page.set_cropbox(fitz.Rect(0, top_mg, r.x1 / 2 - side_mg, r.y1-top_mg))
+            ins_image(new_page, src_pix, kwargs["expand"], kwargs["rotate"])
+            if kwargs["expand"]: 
+                page.set_cropbox(fitz.Rect(0, top_mg, r.x1 / 2 - right_mg, r.y1-bottom_mg))
                 src_pix2 = page.get_pixmap(dpi = 300)
                 new_page2 = doc.new_page()
-                ins_image(new_page2, src_pix2, expand,rotate)
+                ins_image(new_page2, src_pix2, kwargs["expand"],kwargs["rotate"])
         else: # for duplicating ones that are already half size
             page.set_cropbox(fitz.Rect(croprect))
             src_pix = page.get_pixmap(dpi = 300)
-            ins_image(new_page, src_pix, expand, rotate)
+            ins_image(new_page, src_pix, kwargs["expand"], kwargs["rotate"])
     return doc 
 
 def ins_image(page, src_pix, expand = False, rotate = 0):
