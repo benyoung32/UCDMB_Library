@@ -184,7 +184,7 @@ def print_event_info(event):
     print('Common target types:', event.commontargettypes)
     print('Data:', event.data)
     print('Event name:', event.name)
-    print('Supported types:', event.types)
+    print('Supported types:', event.typess)
     print('Modifier keys:', event.modifiers)
     print('Supported source types:', event.supportedsourcetypes)
     print('Operation type:', event.type)
