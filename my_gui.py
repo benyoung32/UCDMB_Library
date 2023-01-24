@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
+import sys
 import glob
 import pathlib
 import printer_prompt
 import pdf_reader
-import fitz
+# import fitz
 from tkinterdnd2 import *
 from tkinter import *
 from tkinter.scrolledtext import ScrolledText
@@ -201,6 +202,11 @@ listbox.dnd_bind('<<DragEndCmd>>', drag_end)
 
 # skip the useless drag_end() binding for the text widget
 
-root.update_idletasks()
-root.deiconify()
-root.mainloop()
+if __name__ == "__main__":
+    print(sys.argv)
+    for i, arg in enumerate(sys.argv):
+        print(f"Argument {i:>6}: {arg}")
+    
+    root.update_idletasks()
+    root.deiconify()
+    root.mainloop()

@@ -1,5 +1,7 @@
 import fitz
+import sys
 import os
+import glob
 
 from numpy import full
 
@@ -17,15 +19,23 @@ def clearAlt():
     for filename in os.listdir(os.getcwd()):
         if filename.endswith('.pdf') and (prefix in filename):
             os.remove(filename)
-             
-def test():
-    filename = 'pdfs/example13.pdf'
-    src = fitz.open(filename)
-    # docs = openDocuments(['example.pdf', 'newfile.pdf', 'newfile2.pdf'])
-    # print(docs)
-    # closeDocuments(docs)
-    process_docs(filename)
-    src.close()
+
+def getSubFiles(filenames, files = []):
+    if not type(filenames) == list:
+        filenames = [filenames]
+    for f in filenames:
+        if os.path.exists(f):
+            if os.path.isdir(f):
+                getSubFiles(glob.glob(f + "/*.pdf"), files)
+            if '.pdf' in f:
+                files.append(f)
+    return files
+
+def test(filename = 'pdfs/example13.pdf'):
+    files = getSubFiles(filename)
+    print('found:')
+    print(files)
+    process_docs(files)
 
 # open, convert, close and save list of filenames
 def process_docs(filenames, prefix = prefix):
@@ -44,16 +54,16 @@ def process_docs(filenames, prefix = prefix):
     return new_files
 
 # convert a4 size paper to two a5 sized documents
-def duplicateAndScale(src, two_in_one = True, full_size = False, expand = True, rotate = 0):
+def duplicateAndScale(src, two_in_one = False, full_size = True, expand = False, rotate = 270):
     doc = fitz.open() # create new empty doc
     for page in src: # loop over each page
-        page.set_rotation(rotate)   # ensure page is rotated correctly
+        page.set_rotation(0)   # ensure page is rotated correctly
         new_page = doc.new_page() # create new empty page
         r = page.mediabox
-        top_mg = 5
-        left_mg = 5
+        top_mg = 15
+        left_mg = 15
         right_mg = 0
-        bottom_mg = 0
+        bottom_mg = 20
         
         if full_size: # only use one
             croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-top_mg)
@@ -107,5 +117,10 @@ def closeDocuments(docs):
 
 if __name__ == "__main__":
     print('going')
-    test()
+    if (len(sys.argv) > 1):
+        for filename in sys.argv[1:]:
+            test(filename)
+    else:
+        test()
+    
 
