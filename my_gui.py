@@ -3,13 +3,13 @@ import os
 import sys
 import glob
 import pathlib
+from typing import List
 import printer_prompt
 import pdf_reader
-# import fitz
+from PIL import Image, ImageTk
+from fitz import *
 from tkinterdnd2 import *
-from tkinter import *
-from tkinter.scrolledtext import ScrolledText
-from tkinter import filedialog
+import tkinter as tk
 
 # dict linking filenames with their filepaths 
 filedict = {}
@@ -25,13 +25,16 @@ root.grid_columnconfigure(1, weight=1, minsize=300)
 
 
 
-Label(root, text='Drag and drop files here:').grid(
+tk.Label(root, text='Drag and drop files here:').grid(
                     row=0, column=0, padx=10, pady=5)
-buttonbox = Frame(root)
+buttonbox = tk.Frame(root)
 buttonbox.grid(row=2, column=0, columnspan=2, pady=5)
 
-def add_files(filepaths):
+def add_files(filepaths: List[str]):
+    if not type(filepaths) == list:
+        filepaths = [filepaths]
     for f in filepaths:
+        # print(f)
         if os.path.exists(f):
             if os.path.isdir(f):
                 add_files(glob.glob(f + "/*.pdf"))
@@ -70,7 +73,7 @@ def conv_pdf():
 
 # open folder using system file explorer
 def open_folder():
-    answer = filedialog.askdirectory(parent=root,
+    answer = tk.filedialog.askdirectory(parent=root,
                                  initialdir=os.getcwd(),
                                  title="Please select a folder:")
     filenames = []
@@ -79,39 +82,45 @@ def open_folder():
     return filenames
 
 def draw_preview():
-    conv_pdf
     range = get_sel()
     files = listbox.get(range[0], range[1])
     paths = [filedict[file] for file in files]
     docs = pdf_reader.openDocuments(paths)
     for path in paths:
         doc = docs[path]
-        pixmap = pdf_reader.getImage(doc)
-        preview.create_image((0, 0), PhotoImage(data=pixmap[0].tobytes("ppm")))
+        for page in doc:
+            pixmap = page.get_pixmap(dpi = 300)
+            pixmap = fitz.Pixmap(pixmap, 0)  # remove alpha 
+            # print(pixmap.tobytes())
+            pixmap.save('img.png')
+            img = Image.open('img.png')
+            img.resize((400,400), resample=1)
+            # img.show()
+            img = ImageTk.PhotoImage(file='img.png')
+            preview.create_image(10, 10, image=img, anchor='nw')
+            print(preview.children)
 
-
-listbox = Listbox(root, name='dnd_demo_listbox',
+listbox = tk.Listbox(root, name='dnd_demo_listbox',
                     selectmode='extended', width=1, height=1)
 listbox.grid(row=1, column=0, padx=5, pady=5, sticky='news')
 
-Button(buttonbox, text='Quit', command=root.quit).pack(
-                    side=LEFT, padx=5)
-Button(buttonbox, text='Delete Selected', command = (lambda : remove_files(get_sel(), True))).pack(
-                    side=LEFT, padx=5)
-Button(buttonbox, text='Remove Selected', command = (lambda : remove_files(get_sel()))).pack(
-                    side=LEFT, padx=5)
-Button(buttonbox, text='Preview', command=draw_preview).pack(
-                    side=LEFT, padx=5)
-Button(buttonbox, text='Create PDF', command=create_pdf).pack(
-                    side=LEFT, padx=5)
-Button(buttonbox, text='Convert PDF', command=conv_pdf).pack(
-                    side=LEFT, padx=5)
-Button(buttonbox, text='Split PDF', command=lambda : split_pdf([get_sel(True)])).pack(
-                    side=LEFT, padx=5)
+tk.Button(buttonbox, text='Quit', command=root.quit).pack(
+                    side=tk.LEFT, padx=5)
+tk.Button(buttonbox, text='Delete Selected', command = (lambda : remove_files(get_sel(), True))).pack(
+                    side=tk.LEFT, padx=5)
+tk.Button(buttonbox, text='Remove Selected', command = (lambda : remove_files(get_sel()))).pack(
+                    side=tk.LEFT, padx=5)
+tk.Button(buttonbox, text='Preview', command=draw_preview).pack(
+                    side=tk.LEFT, padx=5)
+tk.Button(buttonbox, text='Create PDF', command=create_pdf).pack(
+                    side=tk.LEFT, padx=5)
+tk.Button(buttonbox, text='Convert PDF', command=conv_pdf).pack(
+                    side=tk.LEFT, padx=5)
+tk.Button(buttonbox, text='Split PDF', command=lambda : split_pdf([get_sel(True)])).pack(
+                    side=tk.LEFT, padx=5)
 
-preview = Canvas(root, name='preview_box', width=1, height=1)
+preview = tk.Canvas(root, name='preview_box', width=100, height=100, bg='red')
 preview.grid(row=1, column=1, padx=5, pady=5, sticky='news')
-
 def drop_enter(event):
     event.widget.focus_force()
     # print('Entering widget: %s' % event.widget)
@@ -203,10 +212,8 @@ listbox.dnd_bind('<<DragEndCmd>>', drag_end)
 # skip the useless drag_end() binding for the text widget
 
 if __name__ == "__main__":
-    print(sys.argv)
-    for i, arg in enumerate(sys.argv):
-        print(f"Argument {i:>6}: {arg}")
-    
+    add_files('C:\\Users\\benyo\\Code\\UCDMB_Library\\pdfs')
+    preview.create_rectangle(0, 0, 100, 100, fill='red')
     root.update_idletasks()
     root.deiconify()
     root.mainloop()

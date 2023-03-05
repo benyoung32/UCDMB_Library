@@ -23,7 +23,7 @@ def getSubFiles(filenames, files = []) -> list:
                 files.append(f)
     return files
 
-def test(filename = 'pdfs/example13.pdf', **kwargs) -> None:
+def test(filename = 'pdfs', **kwargs) -> None:
     files = getSubFiles(filename)
     print('found:')
     print(files)
@@ -86,6 +86,7 @@ def duplicateAndScale(src, **kwargs) -> fitz.Document:
         else:
             page.set_cropbox(fitz.Rect(croprect))
             src_pix = page.get_pixmap(dpi = 300)
+            print(page.get_pixmap(dpi =300).tobytes())
             ins_image(new_page, src_pix, expand, rotate)
     return doc 
 
@@ -101,16 +102,18 @@ def ins_image(page, src_pix, expand = False, rotate = 0) -> None:
             pixmap= src_pix, rotate = rotate, keep_proportion = True)
 
 # open given list of filenames into document objects 
-def openDocuments(filenames) -> dict:
+def openDocuments(filenames: list[str]) -> dict:
+    if not type(filenames) == list:
+        print('creating list')
+        filenames = [filenames]    
     return {filename: fitz.open(filename) for filename in filenames}
 
 # close all documents in list/dict
-def closeDocuments(docs) -> None:
+def closeDocuments(docs: list[fitz.Document]) -> None:
     for doc in docs.values(): doc.close()
 
 if __name__ == "__main__":
     print('going')
-        
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('filename', type=str)
     parser.add_argument('margins', nargs=4, help="Top, left, right, and bottom margins", type= int)
