@@ -19,7 +19,7 @@ def getSubFiles(filenames, files = []) -> list:
             if os.path.isdir(f):
                 print("folder found")
                 getSubFiles(glob.glob(f + "/*.pdf"), files)
-            if '.pdf' in f:
+            if '.pdf' in f and prefix not in f:
                 files.append(f)
     return files
 
@@ -38,7 +38,8 @@ def process_docs(filenames, prefix = prefix, **kwargs) -> list:
     for file in filenames:
         doc = fitz.open(file)
         alt = duplicateAndScale(doc, **kwargs)
-        new_filename = prefix + os.path.basename(file)
+        new_filename = os.path.dirname(file) + "\\" +prefix + os.path.basename(file)
+        print(new_filename)
         alt.save(new_filename, deflate = True, 
                 deflate_images = True, garbage = 4, clean = True)
         doc.close()
@@ -47,21 +48,11 @@ def process_docs(filenames, prefix = prefix, **kwargs) -> list:
     return new_files
 
 # convert a4 size paper to two a5 sized documents
-def duplicateAndScale(src, **kwargs) -> fitz.Document:
+def duplicateAndScale(src, full_size=False, expand=False, two_in_one=False,
+                      margins = [0, 0, 0, 0], rotate = 0, **kwargs) -> fitz.Document:
     doc = fitz.open()  # create new empty doc
     # get kwargs value or set default
-    print(kwargs)
-    top_mg, left_mg, right_mg, bottom_mg = (kwargs['margins'] if
-        'margins' in kwargs.keys() else [30, 0, 0, 430])
-    full_size = (kwargs['full_size'] 
-        if 'full_size' in kwargs.keys() else True)
-    expand = (kwargs['expand'] 
-        if 'expand' in kwargs.keys() else False)
-    two_in_one = (kwargs['two_in_one'] 
-        if 'two_in_one' in kwargs.keys() else False)
-    rotate = (kwargs['rotate'] 
-        if 'rotate' in kwargs.keys() else 0)
-        
+    top_mg, left_mg, right_mg, bottom_mg = margins
     for page in src:  # loop over each page
         page.set_rotation(0)  # ensure page is rotated correctly
         new_page = doc.new_page()  # create new empty page
@@ -86,7 +77,7 @@ def duplicateAndScale(src, **kwargs) -> fitz.Document:
         else:
             page.set_cropbox(fitz.Rect(croprect))
             src_pix = page.get_pixmap(dpi = 300)
-            print(page.get_pixmap(dpi =300).tobytes())
+            # print(page.get_pixmap(dpi =300).tobytes())
             ins_image(new_page, src_pix, expand, rotate)
     return doc 
 
@@ -102,7 +93,7 @@ def ins_image(page, src_pix, expand = False, rotate = 0) -> None:
             pixmap= src_pix, rotate = rotate, keep_proportion = True)
 
 # open given list of filenames into document objects 
-def openDocuments(filenames: list[str]) -> dict:
+def openDocuments(filenames: list[str]) -> dict[str, fitz.Document]:
     if not type(filenames) == list:
         print('creating list')
         filenames = [filenames]    
@@ -112,18 +103,32 @@ def openDocuments(filenames: list[str]) -> dict:
 def closeDocuments(docs: list[fitz.Document]) -> None:
     for doc in docs.values(): doc.close()
 
+def strtobool (val):
+    """Convert a string representation of truth to true (1) or false (0).
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    """
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return 1
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return 0
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
+
 if __name__ == "__main__":
-    print('going')
+    # print('going')
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('filename', type=str)
     parser.add_argument('margins', nargs=4, help="Top, left, right, and bottom margins", type= int)
-    parser.add_argument('full_size', type=str)
-    parser.add_argument('two_in_one', type=str)
-    parser.add_argument('expand', type=str)
+    parser.add_argument('full_size', type=strtobool)
+    parser.add_argument('two_in_one', type=strtobool)
+    parser.add_argument('expand', type=strtobool)
     parser.add_argument('rotate', type=int)
     if (len(sys.argv) > 1):
-        # test(sys.argv[1], parser.parse_args())
-        test(sys.argv[1])
+        test(**vars(parser.parse_args()))
+        # test(sys.argv[1])
     else:
         test()
     

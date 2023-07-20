@@ -1,14 +1,22 @@
-from cmath import exp
-from tkinter import * 
+# Import the required libraries
+import tkinter as tk
 from PIL import Image, ImageTk
 
-app = Tk()
-app.geometry("400x400")
+# Create an instance of tkinter frame or window
+win=tk.Tk()
+frame = tk.Frame(master=win,width=700, height=600)
+# Set the size of the window
+win.geometry("700x600")
+frame.pack()
 
-canvas = Canvas(app, bg='red')
-canvas.pack(anchor='nw', fill='both', expand=1)
+# Create a canvas widget
+canvas=tk.Canvas(master=frame, width=700, height=600)
+canvas.pack()
 
-image = ImageTk.PhotoImage(file='img.png')
-canvas.create_image(0, 0, image=image)
+# Load the image
+img=ImageTk.PhotoImage(file="temp.png")
 
-app.mainloop()
+# Add the image in the canvas
+canvas.create_image(350, 400, image=img, anchor="center")
+
+win.mainloop()
