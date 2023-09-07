@@ -11,15 +11,15 @@ def clearAlt() -> None:
         if filename.endswith('.pdf') and (prefix in filename):
             os.remove(filename)
 
-def getSubFiles(filenames, files = []) -> list:
+def getSubFiles(filenames, files = [], ignore_altered = True) -> list[str]:
     if not type(filenames) == list:
         filenames = [filenames]
     for f in filenames:
         if os.path.exists(f):
             if os.path.isdir(f):
                 print("folder found")
-                getSubFiles(glob.glob(f + "/*"), files)
-            if '.pdf' in f and prefix not in f:
+                getSubFiles(glob.glob(f + "/*"), files, ignore_altered)
+            if '.pdf' in f and (not ignore_altered or prefix not in f):
                 files.append(f)
     return files
 

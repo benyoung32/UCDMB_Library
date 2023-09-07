@@ -1,0 +1,63 @@
+{
+    "flute": [
+        "fl"
+    ],
+    "piccolo": [
+
+    ],
+    "clarinet": [
+
+    ],
+    "altosax": [
+        "alto",
+        "alto sax",
+        "alto saxophone"
+    ],
+    "tenorsax": [
+
+    ],
+    "baritonesax": [
+        "baritone saxophone",
+        "barisax",
+        "baritone sax"
+    ],
+    "trumpet": [
+
+    ],
+    "mellophone": [
+        "horn",
+        "french horn"
+    ],
+    "trombone": [
+        "tb",
+        "trombone",
+        "bone"
+    ],
+    "baritone": [
+        "baritone",
+        "baritone horn"
+    ],
+    "sousaphone": [
+
+    ],
+    "glockenspiel": [
+
+    ],
+    "snare": [
+
+    ],
+    "tenors": [
+        "quads",
+        "quad",
+        "quad drums",
+        "tenor drum"
+    ],
+    "bass": [
+        "basses",
+        "bass drum"
+    ],
+    "cymbal": [
+        "cymbals",
+        "cym"
+    ]
+}
