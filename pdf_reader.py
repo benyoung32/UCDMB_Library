@@ -1,10 +1,10 @@
-from fitz import *  
+import fitz
 import argparse
 import sys
 import os
 import glob
 
-prefix = 'p_'
+prefix = 'fp_'
 
 def clearAlt() -> None:
     for filename in os.listdir(os.getcwd()):
@@ -18,7 +18,7 @@ def getSubFiles(filenames, files = []) -> list:
         if os.path.exists(f):
             if os.path.isdir(f):
                 print("folder found")
-                getSubFiles(glob.glob(f + "/*.pdf"), files)
+                getSubFiles(glob.glob(f + "/*"), files)
             if '.pdf' in f and prefix not in f:
                 files.append(f)
     return files
@@ -51,11 +51,16 @@ def process_docs(filenames, prefix = prefix, **kwargs) -> list:
 def duplicateAndScale(src, full_size=False, expand=False, two_in_one=False,
                       margins = [0, 0, 0, 0], rotate = 0, **kwargs) -> fitz.Document:
     doc = fitz.open()  # create new empty doc
+    resized_doc = fitz.open()
     # get kwargs value or set default
     top_mg, left_mg, right_mg, bottom_mg = margins
-    for page in src:  # loop over each page
-        page.set_rotation(0)  # ensure page is rotated correctly
-        new_page = doc.new_page()  # create new empty page
+    fmt = fitz.paper_rect("a4")
+    for page in src:  # process each page
+        # resize incoming document to a4 size
+        # page = resized_doc.new_page(width = fmt.width, height = fmt.height)
+        # page.show_pdf_page(page.rect,src,ipage.number)
+        # page.set_rotation(0)  # ensure page is rotated correctly
+        new_page = doc.new_page()  # create new empty output page
         r = page.mediabox
         if full_size: # only use one
             croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-bottom_mg)
@@ -87,9 +92,13 @@ def ins_image(page, src_pix, expand = False, rotate = 0) -> None:
         page.set_rotation(90)
         page.insert_image(r, pixmap= src_pix, rotate = 90)
     else:
-        page.insert_image(fitz.Rect(10, 0, r.x1 * .85, r.y1 / 2 - 20),
+        # page.insert_image(fitz.Rect(10, 0, r.x1 * .85, r.y1 / 2 - 20),
+        #     pixmap= src_pix, rotate = rotate, keep_proportion = True)
+        # page.insert_image(fitz.Rect(10, r.y1 / 2, r.x1 * 0.85, r.y1 - 20), 
+        #     pixmap= src_pix, rotate = rotate, keep_proportion = True)
+        page.insert_image(fitz.Rect(r.x1 * .15, 0, r.x1, r.y1 / 2),
             pixmap= src_pix, rotate = rotate, keep_proportion = True)
-        page.insert_image(fitz.Rect(10, r.y1 / 2, r.x1 * 0.85, r.y1 - 20), 
+        page.insert_image(fitz.Rect(r.x1 * .15, r.y1 / 2, r.x1, r.y1), 
             pixmap= src_pix, rotate = rotate, keep_proportion = True)
 
 # open given list of filenames into document objects 
