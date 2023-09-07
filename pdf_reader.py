@@ -1,29 +1,29 @@
-from fitz import *  
+import fitz
 import argparse
 import sys
 import os
 import glob
 
-prefix = 'p_'
+prefix = 'fp_'
 
 def clearAlt() -> None:
     for filename in os.listdir(os.getcwd()):
         if filename.endswith('.pdf') and (prefix in filename):
             os.remove(filename)
 
-def getSubFiles(filenames, files = []) -> list:
+def getSubFiles(filenames, files = [], ignore_altered = True) -> list[str]:
     if not type(filenames) == list:
         filenames = [filenames]
     for f in filenames:
         if os.path.exists(f):
             if os.path.isdir(f):
                 print("folder found")
-                getSubFiles(glob.glob(f + "/*.pdf"), files)
-            if '.pdf' in f:
+                getSubFiles(glob.glob(f + "/*"), files, ignore_altered)
+            if '.pdf' in f and (not ignore_altered or prefix not in f):
                 files.append(f)
     return files
 
-def test(filename = 'pdfs/example13.pdf', **kwargs) -> None:
+def test(filename = 'pdfs', **kwargs) -> None:
     files = getSubFiles(filename)
     print('found:')
     print(files)
@@ -38,7 +38,8 @@ def process_docs(filenames, prefix = prefix, **kwargs) -> list:
     for file in filenames:
         doc = fitz.open(file)
         alt = duplicateAndScale(doc, **kwargs)
-        new_filename = prefix + os.path.basename(file)
+        new_filename = os.path.dirname(file) + "\\" +prefix + os.path.basename(file)
+        print(new_filename)
         alt.save(new_filename, deflate = True, 
                 deflate_images = True, garbage = 4, clean = True)
         doc.close()
@@ -47,24 +48,19 @@ def process_docs(filenames, prefix = prefix, **kwargs) -> list:
     return new_files
 
 # convert a4 size paper to two a5 sized documents
-def duplicateAndScale(src, **kwargs) -> fitz.Document:
+def duplicateAndScale(src, full_size=False, expand=False, two_in_one=False,
+                      margins = [0, 0, 0, 0], rotate = 0, **kwargs) -> fitz.Document:
     doc = fitz.open()  # create new empty doc
+    resized_doc = fitz.open()
     # get kwargs value or set default
-    print(kwargs)
-    top_mg, left_mg, right_mg, bottom_mg = (kwargs['margins'] if
-        'margins' in kwargs.keys() else [30, 0, 0, 430])
-    full_size = (kwargs['full_size'] 
-        if 'full_size' in kwargs.keys() else True)
-    expand = (kwargs['expand'] 
-        if 'expand' in kwargs.keys() else False)
-    two_in_one = (kwargs['two_in_one'] 
-        if 'two_in_one' in kwargs.keys() else False)
-    rotate = (kwargs['rotate'] 
-        if 'rotate' in kwargs.keys() else 0)
-        
-    for page in src:  # loop over each page
-        page.set_rotation(0)  # ensure page is rotated correctly
-        new_page = doc.new_page()  # create new empty page
+    top_mg, left_mg, right_mg, bottom_mg = margins
+    fmt = fitz.paper_rect("a4")
+    for page in src:  # process each page
+        # resize incoming document to a4 size
+        # page = resized_doc.new_page(width = fmt.width, height = fmt.height)
+        # page.show_pdf_page(page.rect,src,ipage.number)
+        # page.set_rotation(0)  # ensure page is rotated correctly
+        new_page = doc.new_page()  # create new empty output page
         r = page.mediabox
         if full_size: # only use one
             croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-bottom_mg)
@@ -86,6 +82,7 @@ def duplicateAndScale(src, **kwargs) -> fitz.Document:
         else:
             page.set_cropbox(fitz.Rect(croprect))
             src_pix = page.get_pixmap(dpi = 300)
+            # print(page.get_pixmap(dpi =300).tobytes())
             ins_image(new_page, src_pix, expand, rotate)
     return doc 
 
@@ -95,32 +92,52 @@ def ins_image(page, src_pix, expand = False, rotate = 0) -> None:
         page.set_rotation(90)
         page.insert_image(r, pixmap= src_pix, rotate = 90)
     else:
-        page.insert_image(fitz.Rect(10, 0, r.x1 * .85, r.y1 / 2 - 20),
+        # page.insert_image(fitz.Rect(10, 0, r.x1 * .85, r.y1 / 2 - 20),
+        #     pixmap= src_pix, rotate = rotate, keep_proportion = True)
+        # page.insert_image(fitz.Rect(10, r.y1 / 2, r.x1 * 0.85, r.y1 - 20), 
+        #     pixmap= src_pix, rotate = rotate, keep_proportion = True)
+        page.insert_image(fitz.Rect(r.x1 * .15, 0, r.x1, r.y1 / 2),
             pixmap= src_pix, rotate = rotate, keep_proportion = True)
-        page.insert_image(fitz.Rect(10, r.y1 / 2, r.x1 * 0.85, r.y1 - 20), 
+        page.insert_image(fitz.Rect(r.x1 * .15, r.y1 / 2, r.x1, r.y1), 
             pixmap= src_pix, rotate = rotate, keep_proportion = True)
 
 # open given list of filenames into document objects 
-def openDocuments(filenames) -> dict:
+def openDocuments(filenames: list[str]) -> dict[str, fitz.Document]:
+    if not type(filenames) == list:
+        print('creating list')
+        filenames = [filenames]    
     return {filename: fitz.open(filename) for filename in filenames}
 
 # close all documents in list/dict
-def closeDocuments(docs) -> None:
+def closeDocuments(docs: list[fitz.Document]) -> None:
     for doc in docs.values(): doc.close()
 
+def strtobool (val):
+    """Convert a string representation of truth to true (1) or false (0).
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    """
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return 1
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return 0
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
+
 if __name__ == "__main__":
-    print('going')
-        
+    # print('going')
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('filename', type=str)
     parser.add_argument('margins', nargs=4, help="Top, left, right, and bottom margins", type= int)
-    parser.add_argument('full_size', type=str)
-    parser.add_argument('two_in_one', type=str)
-    parser.add_argument('expand', type=str)
+    parser.add_argument('full_size', type=strtobool)
+    parser.add_argument('two_in_one', type=strtobool)
+    parser.add_argument('expand', type=strtobool)
     parser.add_argument('rotate', type=int)
     if (len(sys.argv) > 1):
-        # test(sys.argv[1], parser.parse_args())
-        test(sys.argv[1])
+        test(**vars(parser.parse_args()))
+        # test(sys.argv[1])
     else:
         test()
     
