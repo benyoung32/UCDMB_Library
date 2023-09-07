@@ -11,17 +11,30 @@ def clearAlt() -> None:
         if filename.endswith('.pdf') and (prefix in filename):
             os.remove(filename)
 
-def getSubFiles(filenames, files = [], ignore_altered = True) -> list[str]:
+def getSubFiles(filenames, files = [], ignore_altered = True, recursive = True) -> list[str]:
     if not type(filenames) == list:
         filenames = [filenames]
     for f in filenames:
         if os.path.exists(f):
             if os.path.isdir(f):
                 print("folder found")
-                getSubFiles(glob.glob(f + "/*"), files, ignore_altered)
+                if recursive:
+                    getSubFiles(glob.glob(f + "/*"), files, ignore_altered)
+                else:
+                    getSubFiles(glob.glob(f + '/*.pdf'),files, ignore_altered)
             if '.pdf' in f and (not ignore_altered or prefix not in f):
                 files.append(f)
     return files
+
+def getSubFolders(filenames, folders = [], ignore_altered = True) -> list[str]:
+    if not type(filenames) == list:
+        filenames = [filenames]
+    for f in filenames:
+        if os.path.exists(f):
+            if os.path.isdir(f):
+                folders.append(f)
+                getSubFolders(glob.glob(f + "/*"), folders, ignore_altered)
+    return folders
 
 def test(filename = 'pdfs', **kwargs) -> None:
     files = getSubFiles(filename)
@@ -111,6 +124,13 @@ def openDocuments(filenames: list[str]) -> dict[str, fitz.Document]:
 # close all documents in list/dict
 def closeDocuments(docs: list[fitz.Document]) -> None:
     for doc in docs.values(): doc.close()
+
+# given list of documents, return one large document
+def combineDocuments(docs: list[fitz.Document]) -> fitz.Document:
+    out_doc = fitz.Document()
+    for doc in docs:
+        out_doc.insert_pdf(doc)
+    return out_doc
 
 def strtobool (val):
     """Convert a string representation of truth to true (1) or false (0).

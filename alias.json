@@ -1,36 +1,49 @@
 {
     "flute": [
+        "flute",
+        "flutes",
         "fl"
     ],
     "piccolo": [
-
+        "piccolo",
+        "picc",
+        "piccs"
     ],
     "clarinet": [
-
+        "clarinet",
+        "net"
     ],
-    "altosax": [
+    "alto saxophone": [
         "alto",
         "alto sax",
         "alto saxophone"
     ],
-    "tenorsax": [
-
+    "tenor saxophone": [
+        "tenorsax",
+        "tenor sax",
+        "tenor saxophone",
+        "tenor"
     ],
-    "baritonesax": [
+    "baritone saxophone": [
         "baritone saxophone",
         "barisax",
         "baritone sax"
     ],
     "trumpet": [
-
+        "trumpet",
+        "trumpets",
+        "tpt",
+        "tpts"
     ],
     "mellophone": [
+        "mellophone",
         "horn",
-        "french horn"
+        "french horn",
+        "mellophone bugle"
     ],
     "trombone": [
-        "tb",
         "trombone",
+        "tb",
         "bone"
     ],
     "baritone": [
@@ -38,25 +51,33 @@
         "baritone horn"
     ],
     "sousaphone": [
-
+        "sousaphone",
+        "sousie",
+        "tuba"
     ],
     "glockenspiel": [
-
+        "glockenspiel",
+        "glock"
     ],
     "snare": [
-
+        "snare",
+        "snare drum",
+        "snares"
     ],
     "tenors": [
         "quads",
         "quad",
         "quad drums",
-        "tenor drum"
+        "tenor drum",
+        "tenor drums"
     ],
     "bass": [
         "basses",
-        "bass drum"
+        "bass drum",
+        "bass drums"
     ],
     "cymbal": [
+        "cymbal",
         "cymbals",
         "cym"
     ]
