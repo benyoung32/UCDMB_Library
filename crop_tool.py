@@ -177,14 +177,17 @@ def updateRotation() -> None:
     # pdf_canvas.create_image(2,2,image=new_photoimage,anchor='nw')
     drawCropBox()
 
-def init():
+def init(filepath:str):
     global pdf_canvas, main_frame, root, tl, br, button_frame, path, cv_width, cv_height, page_br
     global rotate_var, rotate_entry, fullsize_box, fullsize_label, export_button, preview_button
     global twoinone_box
     print('creating window...')
     root.title("Crop pdf")
     root.geometry("1000x1000")
-    path = openFile()
+    if not filepath:
+        path = openFile()
+    else:
+        path = filepath
     # path = 'C:\\Users\\benyo\\Code\\UCDMB_Library\\pdfs\\Everybody Talks-Tenor_Saxophone.pdf'
     doc = reader.openDocuments(path)[path]
     page = doc[0]
@@ -238,6 +241,6 @@ def init():
     root.mainloop()
 
 if __name__ == "__main__":
-    init()    
+    init("C:\\Users\\benyo\\Downloads\\ssb\\Star_Spangled_Banner CORRECT VERSION.pdf")    
 # translate points between canvas pixels and pdf points      
 # show preview

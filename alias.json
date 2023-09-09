@@ -27,7 +27,10 @@
     "baritone saxophone": [
         "baritone saxophone",
         "barisax",
-        "baritone sax"
+        "baritone sax",
+        "bari sax",
+        "bari",
+        "bari saxophone"
     ],
     "trumpet": [
         "trumpet",
@@ -39,7 +42,8 @@
         "mellophone",
         "horn",
         "french horn",
-        "mellophone bugle"
+        "mellophone bugle",
+        "mello"
     ],
     "trombone": [
         "trombone",
@@ -48,12 +52,15 @@
     ],
     "baritone": [
         "baritone",
-        "baritone horn"
+        "baritone horn",
+        "euphonium",
+        "bar"
     ],
     "sousaphone": [
         "sousaphone",
         "sousie",
-        "tuba"
+        "tuba",
+        "sousies"
     ],
     "glockenspiel": [
         "glockenspiel",
@@ -74,11 +81,17 @@
     "bass": [
         "basses",
         "bass drum",
-        "bass drums"
+        "bass drums",
+        "bass"
     ],
     "cymbal": [
         "cymbal",
         "cymbals",
         "cym"
+    ],
+    "score": [
+        "score",
+        "all",
+        "full"
     ]
 }

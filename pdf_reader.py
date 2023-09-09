@@ -17,7 +17,7 @@ def getSubFiles(filenames, files = [], ignore_altered = True, recursive = True) 
     for f in filenames:
         if os.path.exists(f):
             if os.path.isdir(f):
-                print("folder found")
+                # print("folder found")
                 if recursive:
                     getSubFiles(glob.glob(f + "/*"), files, ignore_altered)
                 else:
@@ -62,7 +62,7 @@ def process_docs(filenames, prefix = prefix, **kwargs) -> list:
 
 # convert a4 size paper to two a5 sized documents
 def duplicateAndScale(src, full_size=False, expand=False, two_in_one=False,
-                      margins = [0, 0, 0, 0], rotate = 0, **kwargs) -> fitz.Document:
+                      margins = [0, 0, 0, 0], rotate = 0, left_align = True, **kwargs) -> fitz.Document:
     doc = fitz.open()  # create new empty doc
     resized_doc = fitz.open()
     # get kwargs value or set default
@@ -82,44 +82,48 @@ def duplicateAndScale(src, full_size=False, expand=False, two_in_one=False,
             # croprect = fitz.Rect(20, 40, r.x1 - 300, r.y1 - 275)
         else:
             croprect = fitz.Rect(r.x1 / 2 - top_mg, bottom_mg, r.x1 - right_mg, r.y1 - left_mg)
-        
         if two_in_one: # for duplicating ones that are already half size and two pages
             page.set_cropbox(croprect)
             src_pix = page.get_pixmap(dpi = 300)
-            ins_image(new_page, src_pix, expand, rotate)
+            ins_image(new_page, src_pix, expand, rotate,left_align)
             if expand: 
                 page.set_cropbox(fitz.Rect(left_mg, (r.y1 / 2) - top_mg, r.x1 - right_mg, r.y1-bottom_mg))
                 src_pix2 = page.get_pixmap(dpi = 300)
                 new_page2 = doc.new_page()
-                ins_image(new_page2, src_pix2, expand,rotate)
+                ins_image(new_page2, src_pix2, expand,rotate,left_align)
         else:
             page.set_cropbox(fitz.Rect(croprect))
             src_pix = page.get_pixmap(dpi = 300)
             # print(page.get_pixmap(dpi =300).tobytes())
-            ins_image(new_page, src_pix, expand, rotate)
+            ins_image(new_page, src_pix, expand, rotate,left_align)
     return doc 
 
-def ins_image(page, src_pix, expand = False, rotate = 0) -> None:
+def ins_image(page, src_pix, expand = False, rotate = 0, left_align = True) -> None:
     r = page.bound()
     if expand:
         page.set_rotation(90)
         page.insert_image(r, pixmap= src_pix, rotate = 90)
     else:
-        # page.insert_image(fitz.Rect(10, 0, r.x1 * .85, r.y1 / 2 - 20),
-        #     pixmap= src_pix, rotate = rotate, keep_proportion = True)
-        # page.insert_image(fitz.Rect(10, r.y1 / 2, r.x1 * 0.85, r.y1 - 20), 
-        #     pixmap= src_pix, rotate = rotate, keep_proportion = True)
-        page.insert_image(fitz.Rect(r.x1 * .15, 0, r.x1, r.y1 / 2),
-            pixmap= src_pix, rotate = rotate, keep_proportion = True)
-        page.insert_image(fitz.Rect(r.x1 * .15, r.y1 / 2, r.x1, r.y1), 
-            pixmap= src_pix, rotate = rotate, keep_proportion = True)
+        if left_align:
+            page.insert_image(fitz.Rect(10, 0, r.x1 * .85, r.y1 / 2 - 20),
+                pixmap= src_pix, rotate = rotate, keep_proportion = True)
+            page.insert_image(fitz.Rect(10, r.y1 / 2, r.x1 * 0.85, r.y1 - 20), 
+                pixmap= src_pix, rotate = rotate, keep_proportion = True)
+        else:
+            page.insert_image(fitz.Rect(r.x1 * .15, 0, r.x1, r.y1 / 2),
+                pixmap= src_pix, rotate = rotate, keep_proportion = True)
+            page.insert_image(fitz.Rect(r.x1 * .15, r.y1 / 2, r.x1, r.y1), 
+                pixmap= src_pix, rotate = rotate, keep_proportion = True)
 
 # open given list of filenames into document objects 
 def openDocuments(filenames: list[str]) -> dict[str, fitz.Document]:
     if not type(filenames) == list:
         print('creating list')
         filenames = [filenames]    
-    return {filename: fitz.open(filename) for filename in filenames}
+    # filenames = [file for file in filenames ]
+    for file in filenames:
+        print(file)
+    return {filename: fitz.open(filename) for filename in filenames if os.path.exists(filename)}
 
 # close all documents in list/dict
 def closeDocuments(docs: list[fitz.Document]) -> None:
@@ -151,9 +155,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('filename', type=str)
     parser.add_argument('margins', nargs=4, help="Top, left, right, and bottom margins", type= int)
-    parser.add_argument('full_size', type=strtobool)
-    parser.add_argument('two_in_one', type=strtobool)
-    parser.add_argument('expand', type=strtobool)
+    parser.add_argument('full_size', type=strtobool,default=True)
+    parser.add_argument('two_in_one', type=strtobool,default=False)
+    parser.add_argument('expand', type=strtobool,default=False)
+    parser.add_argument('left_align',type=strtobool, 
+        help='Align cropped pdfs to left edge (True) or right edge (False)', default=True)
     parser.add_argument('rotate', type=int)
     if (len(sys.argv) > 1):
         test(**vars(parser.parse_args()))
