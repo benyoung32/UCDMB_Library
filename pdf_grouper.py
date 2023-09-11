@@ -1,5 +1,7 @@
+from numpy import require
 import pdf_reader as reader
 import tkinter as tk
+import fitz
 import itertools
 import tkinter.filedialog
 import json
@@ -33,34 +35,53 @@ def openFolder() -> str:
     # return filepath
     return answer
 
-def init(dir: str, parts: list[str], output:str) -> None:
+def init(dir: str, parts: list[str], output:str, combine:bool = False) -> None:
     global folder, files
     folder = dir
     found_parts = findMatches(folder, parts)
+    combine = True
     # print(found_parts)
-    for k,v in found_parts.items():
-        print(k, end = ':\n')
-        for n in v:
-            print(n)
-    for part, files in found_parts.items():
+    # for k,v in found_parts.items():
+    #     print(k, end = ':\n')
+    #     for n in v:
+    #         print(n)
+    final_combined_doc = fitz.Document()    
+    # if combine:
+    for part in parts:
+        # print(found_parts.keys())
+        files = found_parts[part]
         # strip errored files our before sending to reader
         changed_files = [file for file in files if file != ERROR_PATH]
-        # print(changed_files)
-        combined_doc = reader.combineDocuments(reader.openDocuments(changed_files).values())
+        part_docs = reader.openDocuments(changed_files).values()
+        combined_doc = reader.combineDocuments(part_docs)
+        # print(combined_doc)
+        if combine:
+            final_combined_doc.insert_pdf(combined_doc)
         combined_doc.save(output + '\\' + part + ".pdf")
-
+    if combine:
+        # print(all_docs)
+        # for doc in all_docs:
+            # print(doc)
+        # final_combined_doc = reader.combineDocuments(all_docs)
+        final_combined_doc.save(output + '\\all_parts' + '.pdf')
 # given a list of parts and filepath to a folder, return a dict with each part as a key and the value being the corresponding filepath
-def findMatches(folder_path:str,parts:list[str]) -> dict[str,str]:
+def findMatches(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
     # iterate over subfolders
-    folders = reader.getSubFolders(folder_path)
+    folders = []
+    for path in folder_paths:
+        # print(path)
+        folders = (reader.getSubFolders(path))
+    # for folder in folders:
+        # print(folder)
     part_dict = {}
     # get all files in listed folders
     for i in range(len(parts)):
         parts[i] = matchPart(parts[i])
     for folder in folders:
         files = reader.getSubFiles(folder, [], ignore_altered=False,recursive=False)
+        # print(files)
         if len(files) == 0: # no files found
-            print("no pdf files found: " + os.path.basename(os.path.normpath(folder)))
+            # print("no pdf files found: " + os.path.basename(os.path.normpath(folder)))
             continue
         new_part_dict = getPartNameFromPath(files,parts)
         # print(new_part_dict)
@@ -85,7 +106,6 @@ def matchPart(part:str) -> str:
     if part[-1] in PART_NUMBERS:
         part_number = part[-1]
         # part_name = part_name[0:-1].strip()
-    # print(part_name, part_number, part)
     for p, names in alias.items():
         for n in names:
             if part_name == n:
@@ -106,10 +126,8 @@ def getPartNameFromPath(paths:list[str], parts:list[str]) -> dict[str,str]:
         name_extra = ''
         instrument = ''
         part_number = ' 1'
-        # print(words)
         for j in range(len(words)-1,-1,-1):
             word = words[j].lower()
-            # print(word)
             if word in IGNORED_WORDS: # ignored words
                 pass
             elif word in ['saxophone', 'sax', 'bugle', 'drum', 'drums', 'horn']: # recombine "descriptor" words into preceding word
@@ -119,24 +137,21 @@ def getPartNameFromPath(paths:list[str], parts:list[str]) -> dict[str,str]:
             elif word in PART_NUMBERS or word in PART_NUMBERS_FANCY: # combine part numbers into preceding word, e.g. [...'saxophone', '1'] -> [...,'saxophone 1', ...]
                 part_number = ' ' + word[0]
         part_name = ''.join([instrument,name_extra,part_number])
-        # print(matchPart(part_name))
         part_dict[matchPart(part_name)] = paths[i]
     found_parts = {}
-    # print(part_dict)
     for part in parts:
         part_number = part[-1]
         part_name = part[0:-2]
-        # print(part,part_number,part_name)
         # no part number specified, return all parts
         if part_number == str(0):
-            found_parts[part_name] = ' '
+            found_parts[part] = ' '
             for n in [0,*PART_NUMBERS]:
                 try_part = part_name + " " + str(n)
-                # print(part)
                 if try_part in part_dict.keys():
-                    found_parts[part_name] = part_dict[try_part] 
+                    found_parts[part] = part_dict[try_part] 
+            if found_parts[part] == ' ':
+                print("no file found for:", part,"in folder:", paths[0])
         else: # return only part specified
-            print
             if part in part_dict.keys():
                 found_parts[part] = part_dict[part]
             else:
@@ -150,38 +165,38 @@ def getPartNameFromPath(paths:list[str], parts:list[str]) -> dict[str,str]:
                         break
                     except:
                         part_number = str(int(part_number) - 1)
-                print(part_number)
+                # print(part_number)
                 if part_number == '0':
-                    print('no file found for:', part)
+                    print('|| WARNING || no file found for:', part)
                     found_parts[part] = [ERROR_PATH]
         # if found_parts[part] == []:
         #     found_parts[part] = ERROR_PATH
     # print(found_parts)
     return found_parts # keep word as long as its not in all strings
 
-def readRequest(request_filepath:str) -> list[str]:
+def readFile(request_filepath:str) -> list[str]:
     reqs = []
     with open(request_filepath) as file:
         while line := file.readline():
             reqs.append(line.strip())
     return reqs
 
-
 if __name__ == "__main__":
     # init(openFolder())
     # init("C:\\Users\\Ben\\Downloads\\ADJ_Everybody Talks - Ty Pon-20230907T050832Z-001")
     parser = argparse.ArgumentParser(sys.argv[0])
-    parser.add_argument('folder list',type=str,default="C:\\Users\\benyo\\Downloads\\folder")
+    parser.add_argument('folder list',type=str,
+                    default="C:\\Users\\benyo\\Downloads\\folder")
     parser.add_argument('request list',type=str,default='request.txt')
-    parser.add_argument('output',type=str,default=os.getcwd())
-    folder, parts, output = vars(parser.parse_args()).values()
-    print(vars(parser.parse_args()))
+    parser.add_argument('output',type=str,default='.')
+    parser.add_argument('-c',dest ='combine',action='store_true')
     # print(parser.parse_args())
-    print(folder, parts, output)
-    parts = readRequest(parts)
+    folder, parts, output, combine = vars(parser.parse_args()).values()
+    # print(folder, parts, output)
+    parts = readFile(parts)
+    folders = readFile(folder)
     for i in range(len(parts)):
         parts[i] = matchPart(parts[i])
     print(parts)
-    init(folder, parts, output)
+    init(folders, parts, output, combine)
     # init("C:\\Users\\benyo\\Downloads\\folder\\Roaring 20's", parts)
-    # print(reader.getSubFolders("C:\\Users\\Ben\\Downloads\\folder", []))

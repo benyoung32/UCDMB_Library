@@ -1,9 +1,12 @@
-flute 
+flute
 clarinet 1
 clarinet 2
-alto 
+clarinet 3
+alto 1
+alto 2
 tenor 
 baritone saxophone 
+baritone
 trumpet 1
 trumpet 2
 trumpet 3

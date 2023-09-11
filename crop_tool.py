@@ -35,6 +35,8 @@ rotate_entry = tk.Entry()
 fullsize_box = tk.Checkbutton()
 expand_box = tk.Checkbutton()
 twoinone_box = tk.Checkbutton()
+rightalign_box = tk.Checkbutton()
+rightalign_var = tk.BooleanVar()
 fullsize_var = tk.BooleanVar()
 expand_var = tk.BooleanVar()
 twoinone_var = tk.BooleanVar()
@@ -58,7 +60,7 @@ def openFile() -> str:
 def getPageScaledImage(page: fitz.Page) -> tk.PhotoImage:
     global page_image
     width, height = page.bound().br
-    print(width, height)
+    # print(width, height)
     pixmap= page.get_pixmap(dpi=300)
     pixmap.save(IMAGE_PATH)
     page_image = Image.open(IMAGE_PATH)
@@ -107,23 +109,25 @@ def onKeyPress(event):
 # using current settings, create settings string for processing module
 def getSettingsDict() -> dict[str, any]:
     args = {}
+    args['filename'] = path
     args['margins'] = (int(tl.x), int(tl.y), int(page_br.x - br.x), int(page_br.y - br.y))
     args['full_size'] = fullsize_var.get()
     args['two_in_one'] = twoinone_var.get()
     args['expand'] = expand_var.get()
+    args['right_align'] = rightalign_var.get()
     args['rotate'] = getRotation()    
     return args
 
 def getSettingsString() -> str:
     global page_br
     args = getSettingsDict()
-    out = ''
-    for v in args.values():
-        if  type(v) is tuple:
-            for n in v:
-                out += str(n) + ' '
-        else: 
-            out += str(v) + ' '
+    out = '\"' + path + '\"' 
+    for v in ['full_size','two_in_one','expand','right_align']:
+        if args[v]:
+            out += ' -' + v
+    for n in args['margins']:
+        out += ' ' + str(n)
+    out += ' ' + str(args['rotate'])
     return out
 
 def printSettingsString() -> None:
@@ -146,9 +150,12 @@ def getRotation() -> int:
 def createPreview():
     global root, path
     args = getSettingsDict()
-    doc = reader.openDocuments(path)[path]
+    # print(args)
+    doc = reader.openDocuments(path,size='a4')[path]
     # alter document using settings 
     newdoc = reader.duplicateAndScale(doc,**args)
+    newdoc.save('hm.pdf',deflate = True, 
+                deflate_images = True, garbage = 4, clean = True)
     new_br = newdoc[0].bound().br
     # create new window to show altered document
     preview_window = tk.Toplevel(master=root)
@@ -177,11 +184,11 @@ def updateRotation() -> None:
     # pdf_canvas.create_image(2,2,image=new_photoimage,anchor='nw')
     drawCropBox()
 
-def init(filepath:str):
+def init(filepath:str = None):
     global pdf_canvas, main_frame, root, tl, br, button_frame, path, cv_width, cv_height, page_br
     global rotate_var, rotate_entry, fullsize_box, fullsize_label, export_button, preview_button
     global twoinone_box
-    print('creating window...')
+    # print('creating window...')
     root.title("Crop pdf")
     root.geometry("1000x1000")
     if not filepath:
@@ -213,7 +220,8 @@ def init(filepath:str):
     expand_box = tk.Checkbutton(button_frame, variable = expand_var)
     twoinone_label = tk.Label(button_frame, text='Two in one?')
     twoinone_box = tk.Checkbutton(button_frame, variable = twoinone_var)
-    
+    rightalign_label = tk.Label(button_frame, text='Right align?')
+    rightalign_box = tk.Checkbutton(button_frame, variable = rightalign_var)
     # rotate_entry.insert(0,'0')
     button_frame.grid(row=0,column=1,sticky='nw',pady=PADDING,padx=PADDING)
     preview_button.grid(row=0,column=0,sticky='nwes')
@@ -226,6 +234,8 @@ def init(filepath:str):
     expand_box.grid(row=3,column=1,sticky = 'nwes')
     twoinone_label.grid(row=4,column=0,sticky = 'nwes')
     twoinone_box.grid(row=4,column=1,sticky = 'nwes')
+    rightalign_label.grid(row=5,column=0,sticky = 'nwes')
+    rightalign_box.grid(row=5,column=1,sticky = 'nwes')
     main_frame.pack(padx=PADDING,pady=PADDING,fill='none')
     # pdf_canvas.pack(padx=PADDING,pady=PADDING)
 
@@ -241,6 +251,7 @@ def init(filepath:str):
     root.mainloop()
 
 if __name__ == "__main__":
-    init("C:\\Users\\benyo\\Downloads\\ssb\\Star_Spangled_Banner CORRECT VERSION.pdf")    
+    # init("C:\\Users\\benyo\\Downloads\\ssb\\Star_Spangled_Banner CORRECT VERSION.pdf")
+    init()    
 # translate points between canvas pixels and pdf points      
 # show preview
