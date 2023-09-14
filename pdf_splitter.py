@@ -37,17 +37,18 @@ def printDict(dict):
 def main(filename:str):
     pass
 
-def splitPDFs(filename:str, outnamepath:str, simple:bool = False, pages_override = None, rotate = False):
+def splitPDFs(filename:str, outnamepath:str, simple:bool = False, pages_override = None, rotate = None):
     # open document
     filenames = reader.getSubFiles(filename)
-    docs = reader.openDocuments(filenames,size = 'letter')
+    docs = reader.openDocuments(filenames)
+    # reader.saveDocument(list(docs.values())[0],'./test.pdf','')
     print(filenames)
     fmt = fitz.paper_rect('letter')
     if rotate:
         print('rotating')
         for doc in docs.values():
             for page in doc:
-                page.set_rotation(180)
+                page.set_rotation(rotate)
     if simple:
         for filepath, doc in docs.items():
             i = 1
@@ -76,12 +77,10 @@ def splitPDFs(filename:str, outnamepath:str, simple:bool = False, pages_override
     template = cv.imread('.\\template.png.', cv.IMREAD_GRAYSCALE)
     method = eval('cv.TM_CCOEFF_NORMED')
     for filepath, doc in docs.items():
-        i = 0
+        i = 1
         if not pages_override:
             last_pages = []
             for page in doc:
-                # print(page.rect)
-                page.set_rotation(90)
                 crop.savePageImage(page, 'temp2.png')
                 img = cv.imread('temp2.png', cv.IMREAD_GRAYSCALE)
                 last_pages.append(isLastPage(img, template, method))
@@ -89,16 +88,21 @@ def splitPDFs(filename:str, outnamepath:str, simple:bool = False, pages_override
                 # min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
                 # max_vals.append(max_val)
                 # showMaxMatch(res, img)
-            # i = i + 1
+                print('page ', str(i), '...')   
+                i = i + 1
+
         else:
             last_pages = pages_override
-        print(last_pages)
+        # save last_pages to file
+        page_file = open('pages.txt', 'w+')
+        for b in last_pages:
+            page_file.write(str(b) + '\n')
+        page_file.close()
         j = 1
-        new_doc = fitz.open()
+        new_doc = fitz.Document(rect=fmt)
         for i in range(len(last_pages)):
             # end of song
-            new_page = new_doc.new_page()
-            new_page.show_pdf_page(new_page.rect, doc, i)
+            new_doc.insert_pdf(doc,from_page=i, to_page=i)
             if last_pages[i] == True:
                 if i < len(songs):
                     song = songs[i] + ' - '
@@ -127,21 +131,21 @@ def isLastPage(img ,template, method = cv.TM_CCOEFF_NORMED):
     min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
     # if nothing found, search whole page
     if max_val < 0.2:
-        print('redo...')
+        # print('redo...')
         res = cv.matchTemplate(img[-len(img)//2:-1], template, method)
         min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
         # showMaxMatch(res, img[-len(img)//2:-1])
-    print(max_val)
+    # print(max_val)
     threshold = max_val - FUZZY_THRESHOLD
     loc = np.where(res >= threshold)
     points = list(zip(*loc[::-1]))[0:10]
-    print(points)
+    # print(points)
     if len(points) > 1:
         distances = [dist(p1, p2) for p1, p2 in combinations(points, 2)]
         avg_distance = sum(distances) / len(distances)
     else:
         avg_distance = 0
-    print(avg_distance)
+    # print(avg_distance)
     return avg_distance < MAX_AVERAGE_DISTANCE
     
 def showMaxMatch(res, img) -> None:
@@ -204,17 +208,23 @@ if __name__ == "__main__":
     parser.add_argument('-page_names', type=str, nargs = '?',
                 help = 'File containing the names for each page on their own line',
                 default=None)
-    parser.add_argument('-last_pages', type=reader.strtobool, nargs = '*',
-                help = 'Override the page separation with custom list',
+    parser.add_argument('-o', dest = 'last_page_file', type=str, nargs = '?',
+                help = 'Override the page separation with custom list in this file',
                 default= None)
     parser.add_argument('-s', dest = 'simple', 
                 help = 'Simply split the pdf into 1 page chunks',
                 action = 'store_true')
     parser.add_argument('-r', dest = 'rotate', 
                 help = 'Rotate the input documents 90 degrees',
-                action = 'store_true')
+                type = int)
     args = parser.parse_args()
     print(args.filename)
+    if args.last_page_file:
+        last_pages = grouper.readFile(args.last_page_file)
+        last_pages = [reader.strtobool(s) for s in last_pages]
+    else:
+        last_pages = None
     # print(args.last_pages)
     # grouper.matchPart('eb alto saxophone/horn in eb')
-    splitPDFs(args.filename, args.page_names, args.simple, args.last_pages,args.rotate)
+
+    splitPDFs(args.filename, args.page_names, args.simple,last_pages,args.rotate)

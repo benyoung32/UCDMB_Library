@@ -7,6 +7,7 @@ import os
 import glob
 
 prefix = 'p_'
+FORMAT = fitz.paper_rect('letter')
 
 CW = 0.85 # cropped width
 
@@ -67,7 +68,7 @@ def processDocs(filenames, prefix = prefix, **kwargs) -> list:
 # convert letter size paper to two small sized documents
 def duplicateAndScale(src, full_size=False, expand=False, two_in_one=False,
                       margins = [0, 0, 0, 0], rotate = 0, right_align = False, **kwargs) -> fitz.Document:
-    doc = fitz.open()  # create new empty doc
+    doc = fitz.Document(rect=FORMAT)  # create new empty doc
     top_mg, left_mg, right_mg, bottom_mg = margins
     # if right_align:
     #     src = rightAlign(src)
@@ -116,7 +117,7 @@ def insertImage(page, src_pix, expand = False,
                 pixmap= src_pix, rotate = rotate, keep_proportion = True)
 
 def rightAlign(doc: fitz.Document):
-    out_doc = fitz.Document()
+    out_doc = fitz.Document(rect=FORMAT)
     for page in doc:
         r = page.mediabox
         croprect = fitz.Rect(0, 0, r.x1 * CW, r.y1)
@@ -128,7 +129,7 @@ def rightAlign(doc: fitz.Document):
     return out_doc
 
 def leftAlign(doc:fitz.Document) -> Document:
-    out_doc = fitz.Document()
+    out_doc = fitz.Document(rect=FORMAT)
     for page in doc:
         r = page.mediabox
         croprect = fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1)
@@ -140,7 +141,7 @@ def leftAlign(doc:fitz.Document) -> Document:
     return out_doc
 
 def resizeDocument(src: fitz.Document, format:str = 'letter') -> fitz.Document:
-    doc = fitz.open()
+    doc = fitz.Document(rect=FORMAT)
     for ipage in src:
         if ipage.rect.width > ipage.rect.height:
             fmt = fitz.paper_rect(format)  # landscape if input suggests
