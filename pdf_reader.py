@@ -1,11 +1,12 @@
 from turtle import right
+from xml.dom.minidom import Document
 import fitz
 import argparse
 import sys
 import os
 import glob
 
-prefix = 'fp_'
+prefix = 'p_'
 
 CW = 0.85 # cropped width
 
@@ -58,24 +59,22 @@ def processDocs(filenames, prefix = prefix, **kwargs) -> list:
     for file,doc in docs.items():
         alt = duplicateAndScale(doc, **kwargs)
         new_filename = os.path.dirname(file) + "\\" +prefix + os.path.basename(file)
-        print(new_filename)
-        alt.save(new_filename, deflate = True, 
-                deflate_images = True, garbage = 4, clean = True)
+        saveDocument(alt, file)
         doc.close()
-        alt.close()
         new_files.append(new_filename)
     return new_files
 
-# convert a4 size paper to two a5 sized documents
+# convert letter size paper to two small sized documents
 def duplicateAndScale(src, full_size=False, expand=False, two_in_one=False,
                       margins = [0, 0, 0, 0], rotate = 0, right_align = False, **kwargs) -> fitz.Document:
     doc = fitz.open()  # create new empty doc
     top_mg, left_mg, right_mg, bottom_mg = margins
     # if right_align:
     #     src = rightAlign(src)
+    fmt = fitz.paper_rect('letter')
     for page in src:  # process each page
         page.set_rotation(0)  # ensure page is rotated correctly
-        new_page = doc.new_page()  # create new empty output page
+        new_page = doc.new_page(width = fmt.width, height = fmt.height)  # create new empty output page
         r = page.mediabox
         if full_size: # only use one
             croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-bottom_mg)
@@ -98,6 +97,24 @@ def duplicateAndScale(src, full_size=False, expand=False, two_in_one=False,
             insertImage(new_page, src_pix, expand, rotate,right_align)
     return doc 
 
+def insertImage(page, src_pix, expand = False, 
+                rotate = 0, right_align = True, keep_proportion = True) -> None:
+    r = page.bound()
+    if expand:
+        page.set_rotation(90)
+        page.insert_image(r, pixmap= src_pix, rotate = 90)
+    else:
+        if not right_align:
+            page.insert_image(fitz.Rect(0, 0, r.x1 * CW, r.y1 / 2 - 20),
+                pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
+            page.insert_image(fitz.Rect(0, r.y1 / 2, r.x1 * CW, r.y1 - 20), 
+                pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
+        else:
+            page.insert_image(fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1 / 2),
+                pixmap= src_pix, rotate = rotate, keep_proportion = True)
+            page.insert_image(fitz.Rect(r.x1 * (1 - CW), r.y1 / 2, r.x1, r.y1), 
+                pixmap= src_pix, rotate = rotate, keep_proportion = True)
+
 def rightAlign(doc: fitz.Document):
     out_doc = fitz.Document()
     for page in doc:
@@ -110,37 +127,35 @@ def rightAlign(doc: fitz.Document):
                               pixmap=page_pixmap)
     return out_doc
 
-def resizeDocument(src: fitz.Document, format:str = 'a4') -> fitz.Document:
+def leftAlign(doc:fitz.Document) -> Document:
+    out_doc = fitz.Document()
+    for page in doc:
+        r = page.mediabox
+        croprect = fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1)
+        page.set_cropbox(croprect)
+        page_pixmap = page.get_pixmap(dpi = 300)
+        out_page = out_doc.new_page()
+        out_page.insert_image(fitz.Rect(0, 0, r.x1 * CW, r.y1),
+                              pixmap=page_pixmap)
+    return out_doc
+
+def resizeDocument(src: fitz.Document, format:str = 'letter') -> fitz.Document:
     doc = fitz.open()
     for ipage in src:
         if ipage.rect.width > ipage.rect.height:
-            fmt = fitz.paper_rect("a4-l")  # landscape if input suggests
+            fmt = fitz.paper_rect("letter")  # landscape if input suggests
+            # temp = fmt.width
+            fmt = fitz.Rect(0,0,fmt.height, fmt.width)
+            # fmt.height = temp
         else:
-            fmt = fitz.paper_rect("a4")
+            fmt = fitz.paper_rect("letter")
         page = doc.new_page(width = fmt.width, height = fmt.height)
         page.show_pdf_page(page.rect, src, ipage.number)
     return doc
 
-def insertImage(page, src_pix, expand = False, 
-                rotate = 0, right_align = True, keep_proportion = True) -> None:
-    r = page.bound()
-    if expand:
-        page.set_rotation(90)
-        page.insert_image(r, pixmap= src_pix, rotate = 90)
-    else:
-        if not right_align:
-            page.insert_image(fitz.Rect(10, 0, r.x1 * CW, r.y1 / 2 - 20),
-                pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
-            page.insert_image(fitz.Rect(10, r.y1 / 2, r.x1 * CW, r.y1 - 20), 
-                pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
-        else:
-            page.insert_image(fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1 / 2),
-                pixmap= src_pix, rotate = rotate, keep_proportion = True)
-            page.insert_image(fitz.Rect(r.x1 * (1 - CW), r.y1 / 2, r.x1, r.y1), 
-                pixmap= src_pix, rotate = rotate, keep_proportion = True)
 
 # open given list of filenames into document objects 
-def openDocuments(filenames: list[str], right_align:bool = False, size:str = "a4") -> dict[str, fitz.Document]:
+def openDocuments(filenames: list[str], right_align:bool = False, size:str = "letter") -> dict[str, fitz.Document]:
     if not type(filenames) == list:
         filenames = [filenames]
     filenames = [file for file in filenames if os.path.exists(file)]    
@@ -153,9 +168,13 @@ def openDocuments(filenames: list[str], right_align:bool = False, size:str = "a4
             doc = rightAlign(doc)
         out[filename] = doc
     return out
+
 # close all documents in list/dict
-def closeDocuments(docs: list[fitz.Document]) -> None:
-    for doc in docs.values(): doc.close()
+def saveDocument(doc: fitz.Document, filename:str) -> None: 
+    new_filename = os.path.dirname(filename) + "\\" +prefix + os.path.basename(filename)
+    doc.save(new_filename, deflate = True, 
+            deflate_images = True, garbage = 4, clean = True)
+    doc.close()
 
 # given list of documents, return one large document
 def combineDocuments(docs: list[fitz.Document]) -> fitz.Document:
@@ -198,10 +217,28 @@ if __name__ == "__main__":
     parser.add_argument('-r','-right_align',
                         help='Align cropped pdfs to right edge of the page',
                         dest='right_align', action='store_true')
-    if (len(sys.argv) > 1):
-        test(**vars(parser.parse_args()))
+    parser.add_argument('-ro', '-right_align_only',
+                        help='Align pdfs to right edge of the page, don\'t do any cropping',
+                        dest='right_align_only', action='store_true')
+    parser.add_argument('-lo', '-left_align_only',
+                        help='Align pdfs to right edge of the page, don\'t do any cropping',
+                        dest='left_align_only', action='store_true')
+    args = parser.parse_args()
+    if args.right_align_only:
+        files = getSubFiles(args.filename)
+        docs = openDocuments(files)
+        for path, doc in docs.items():
+            saveDocument(rightAlign(doc), path)
+    elif args.left_align_only:
+        files = getSubFiles(args.filename)
+        docs = openDocuments(files)
+        for path, doc in docs.items():
+            saveDocument(leftAlign(doc), path)
+    elif (len(sys.argv) > 1):
+        test(**vars(args))
         # test(sys.argv[1])
     else:
         test()
-    resizeDocument(fitz.open(parser.parse_args().filename))
+    
+    # resizeDocument(fitz.open(parser.parse_args().filename))
 

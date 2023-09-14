@@ -40,7 +40,6 @@
     ],
     "mellophone": [
         "mellophone",
-        "horn",
         "french horn",
         "mellophone bugle",
         "mello"
@@ -50,11 +49,17 @@
         "tb",
         "bone"
     ],
-    "baritone": [
+    "baritone bc": [
         "baritone",
+        "baritonebc",
         "baritone horn",
         "euphonium",
-        "bar"
+        "bar",
+        "baritone bc"
+    ],
+    "baritone tc": [
+        "baritone tc",
+        "baritonetc"
     ],
     "sousaphone": [
         "sousaphone",
