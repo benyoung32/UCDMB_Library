@@ -196,9 +196,7 @@ def strtobool (val):
         return 0
     else:
         raise ValueError("invalid truth value %r" % (val,))
-
 if __name__ == "__main__":
-    # print('going')
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('filename', type=str)
     parser.add_argument('margins', nargs=4, help="Top, left, right, and bottom margins", type= int)
