@@ -101,12 +101,14 @@ def findMatches(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
     return part_dict
 
 # given part name, try to find match in alias
-def matchPart(part:str) -> str:
+def matchPart(part:str, quiet:bool = False) -> str:
     part = part.lower().strip()
     part_name = ERROR_PART
     if part == '':
         return part_name
     words = part.split()
+    # words = [word for word in words if word not in ['in','eb','bb','full','ab','c']]
+    # print(words)
     # check last word for part number or n/a
     if words[-1] in ['n/a']:
         part_number = 0
@@ -124,9 +126,24 @@ def matchPart(part:str) -> str:
         for n in names:
             if name == n:
                 part_name = p
+                break
     if part_name == ERROR_PART:
-        print('NO PART NAME FOUND FOR:', part_name)
-        return ERROR_PART
+        # double check all words for looser match
+        for word in words:
+            for p, names in alias.items():
+                for n in names:
+                    if word == n:
+                        part_name = p
+                        break
+                else:
+                    continue
+            else:
+                continue
+        # still nothing found
+        if part_name == ERROR_PART:
+            if not quiet:
+                print('NO PART NAME FOUND FOR:', part)
+            return ERROR_PART
     return ' '.join([part_name, str(part_number)])
 
 def getPartNameFromPath(paths:list[str], parts:list[str]) -> dict[str,str]:

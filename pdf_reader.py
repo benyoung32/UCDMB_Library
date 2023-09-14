@@ -55,7 +55,7 @@ def processDocs(filenames, prefix = prefix, **kwargs) -> list:
     if not type(filenames) == list:
         filenames = [filenames]
     new_files = []
-    docs = openDocuments(filenames)
+    docs = openDocuments(filenames, size='letter')
     for file,doc in docs.items():
         alt = duplicateAndScale(doc, **kwargs)
         new_filename = os.path.dirname(file) + "\\" +prefix + os.path.basename(file)
@@ -143,19 +143,21 @@ def resizeDocument(src: fitz.Document, format:str = 'letter') -> fitz.Document:
     doc = fitz.open()
     for ipage in src:
         if ipage.rect.width > ipage.rect.height:
-            fmt = fitz.paper_rect("letter")  # landscape if input suggests
+            fmt = fitz.paper_rect(format)  # landscape if input suggests
+            print(fmt)
             # temp = fmt.width
             fmt = fitz.Rect(0,0,fmt.height, fmt.width)
+            print(fmt)
             # fmt.height = temp
         else:
-            fmt = fitz.paper_rect("letter")
+            fmt = fitz.paper_rect(format)
         page = doc.new_page(width = fmt.width, height = fmt.height)
         page.show_pdf_page(page.rect, src, ipage.number)
     return doc
 
 
 # open given list of filenames into document objects 
-def openDocuments(filenames: list[str], right_align:bool = False, size:str = "letter") -> dict[str, fitz.Document]:
+def openDocuments(filenames: list[str], right_align:bool = False, size:str = None) -> dict[str, fitz.Document]:
     if not type(filenames) == list:
         filenames = [filenames]
     filenames = [file for file in filenames if os.path.exists(file)]    
@@ -170,8 +172,8 @@ def openDocuments(filenames: list[str], right_align:bool = False, size:str = "le
     return out
 
 # close all documents in list/dict
-def saveDocument(doc: fitz.Document, filename:str) -> None: 
-    new_filename = os.path.dirname(filename) + "\\" +prefix + os.path.basename(filename)
+def saveDocument(doc: fitz.Document, filename:str, prefix = prefix) -> None: 
+    new_filename = os.path.dirname(filename) + "\\" + prefix + os.path.basename(filename)
     doc.save(new_filename, deflate = True, 
             deflate_images = True, garbage = 4, clean = True)
     doc.close()
@@ -191,11 +193,12 @@ def strtobool (val):
     """
     val = val.lower()
     if val in ('y', 'yes', 't', 'true', 'on', '1'):
-        return 1
+        return True
     elif val in ('n', 'no', 'f', 'false', 'off', '0'):
-        return 0
+        return False
     else:
         raise ValueError("invalid truth value %r" % (val,))
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('filename', type=str)

@@ -19,7 +19,7 @@ CROPBOX_ID = None
 # ROTATE = 0
 
 cv_width, cv_height = None, None
-root = tk.Tk()
+root = None
 # temp init 
 main_frame = tk.Frame(master=root)
 pdf_canvas = tk.Canvas(root)
@@ -192,6 +192,7 @@ def init(filepath:str = None):
     global rotate_var, rotate_entry, fullsize_box, fullsize_label, export_button, preview_button
     global twoinone_box
     # print('creating window...')
+    root = tk.Tk()
     root.title("Crop pdf")
     root.geometry("1000x1000")
     if not filepath:
