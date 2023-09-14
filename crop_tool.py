@@ -61,11 +61,14 @@ def getPageScaledImage(page: fitz.Page) -> tk.PhotoImage:
     global page_image
     width, height = page.bound().br
     # print(width, height)
-    pixmap= page.get_pixmap(dpi=300)
-    pixmap.save(IMAGE_PATH)
+    savePageImage(page, IMAGE_PATH)
     page_image = Image.open(IMAGE_PATH)
     page_image = page_image.resize(size=(int(width), int(height)))
     return ImageTk.PhotoImage(page_image)
+
+def savePageImage(page: fitz.Page, filepath:str)-> None:
+    pixmap= page.get_pixmap(dpi=300)
+    pixmap.save(filepath)
 
 # draw current cropbox onto pdf_canvas, replacing previous
 def drawCropBox() -> None:
@@ -154,8 +157,8 @@ def createPreview():
     doc = reader.openDocuments(path,size='a4')[path]
     # alter document using settings 
     newdoc = reader.duplicateAndScale(doc,**args)
-    newdoc.save('hm.pdf',deflate = True, 
-                deflate_images = True, garbage = 4, clean = True)
+    # newdoc.save('hm.pdf',deflate = True, 
+    #             deflate_images = True, garbage = 4, clean = True)
     new_br = newdoc[0].bound().br
     # create new window to show altered document
     preview_window = tk.Toplevel(master=root)
