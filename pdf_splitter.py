@@ -37,7 +37,9 @@ def printDict(dict):
 def main(filename:str):
     pass
 
-def splitPDFs(filename:str, outnamepath:str, simple:bool = False, pages_override = None, rotate = None):
+def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = False, 
+              pages_override = None, rotate = None,from_part:bool = False,
+              no_save:bool = False, **kwargs):
     # open document
     filenames = reader.getSubFiles(filename)
     docs = reader.openDocuments(filenames)
@@ -70,45 +72,50 @@ def splitPDFs(filename:str, outnamepath:str, simple:bool = False, pages_override
                 new_doc.close()
                 i = i + 1
         return
-    if outnamepath:
-        songs = grouper.readFile(outnamepath)
-    else:
-        songs = []
     template = cv.imread('.\\template.png.', cv.IMREAD_GRAYSCALE)
     method = eval('cv.TM_CCOEFF_NORMED')
     for filepath, doc in docs.items():
         i = 1
+        if from_part: part_file = open('parts.txt', 'w+')
         if not pages_override:
             last_pages = []
             for page in doc:
                 crop.savePageImage(page, 'temp2.png')
                 img = cv.imread('temp2.png', cv.IMREAD_GRAYSCALE)
                 last_pages.append(isLastPage(img, template, method))
+                if from_part: part_file.write(getPartFromImage(img) + '\n')
                 # res = cv.matchTemplate(img, template, eval(method))
                 # min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
                 # max_vals.append(max_val)
                 # showMaxMatch(res, img)
                 print('page ', str(i), '...')   
                 i = i + 1
-
         else:
             last_pages = pages_override
+        if from_part: part_file.close()
         # save last_pages to file
         page_file = open('pages.txt', 'w+')
         for b in last_pages:
             page_file.write(str(b) + '\n')
         page_file.close()
         j = 1
+        if from_part:
+            songs = grouper.readFile('parts.txt')
+        elif output_names_filepath:
+            songs = grouper.readFile(output_names_filepath)
+        else:
+            songs = []
         new_doc = fitz.Document(rect=fmt)
+        if no_save:
+            return # return only if saving is not needed
         for i in range(len(last_pages)):
             # end of song
             new_doc.insert_pdf(doc,from_page=i, to_page=i)
             if last_pages[i] == True:
+                extra = str(j) + ' '
+                j = j + 1
                 if i < len(songs):
-                    song = songs[i] + ' - '
-                else:
-                    song = str(j) + ' '
-                    j = j + 1
+                    extra = songs[i]
                 # new_path = os.path.dirname(filepath) + "\\" + song  + os.path.basename(filepath)
                 directory = os.path.dirname(filepath)
                 base = os.path.basename(filepath).strip('.pdf')
@@ -117,8 +124,9 @@ def splitPDFs(filename:str, outnamepath:str, simple:bool = False, pages_override
                     os.mkdir(new_folder)
                 except:
                     pass
-                reader.saveDocument(new_doc, new_folder + '\\' + base + '.pdf', song) # save and close old doc
-                new_doc = fitz.open() # start new one
+                # reader.saveDocument(new_doc, new_folder + '\\' + base + '.pdf', song) # save and close old doc
+                reader.saveDocument(new_doc, new_folder + '\\' + base + ' - ' + extra + '.pdf', '') # save and close old doc
+                new_doc = fitz.open() # start new document
 
 def dist(p1, p2):
     (x1, y1), (x2, y2) = p1, p2
@@ -164,15 +172,15 @@ def showMaxMatch(res, img) -> None:
     plt.suptitle('result')
     plt.show()
 
-def getPartFromImage(img):
+def getPartFromImage(img) -> str:
     pytesseract.pytesseract.tesseract_cmd = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe' 
     # Read image from which text needs to be extracted
     img = img[0:len(img)//5]
     # Preprocessing the image starts
     # Convert the image to gray scale
-    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    # gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     # Performing OTSU threshold
-    ret, thresh1 = cv.threshold(gray, 0, 255, cv.THRESH_OTSU | cv.THRESH_BINARY_INV)
+    ret, thresh1 = cv.threshold(img, 0, 255, cv.THRESH_OTSU | cv.THRESH_BINARY_INV)
     
     # each word instead of a sentence.
     rect_kernel = cv.getStructuringElement(cv.MORPH_RECT, (18, 18))
@@ -184,9 +192,6 @@ def getPartFromImage(img):
     contours, hierarchy = cv.findContours(dilation, cv.RETR_EXTERNAL,
                                                     cv.CHAIN_APPROX_NONE)
     im2 = img.copy()
-    # A text file is created and flushed
-    # file.write("")
-    # file.close()
     # Looping through the identified contours
     for cnt in contours:
         x, y, w, h = cv.boundingRect(cnt)
@@ -195,7 +200,8 @@ def getPartFromImage(img):
         # file = open(outfile, "a")
         text = pytesseract.image_to_string(cropped)
         # check if instrument
-        part = grouper.matchPart(text, quiet = True)
+        # print(text)
+        part = grouper.matchPart(text, quiet = True, pretty = True)
         if part != grouper.ERROR_PART:
             return part
     return grouper.ERROR_PART
@@ -203,14 +209,21 @@ def getPartFromImage(img):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('filename',type=str, nargs = '?',
-                help = 'The file that will be split',
-                default=".\\output\\alto saxophone 1.pdf")
-    parser.add_argument('-page_names', type=str, nargs = '?',
+                help = 'The file that will be split')
+    parser.add_argument('-p','-page_names', dest = 'page_names',type=str, nargs = '?',
                 help = 'File containing the names for each page on their own line',
                 default=None)
     parser.add_argument('-o', dest = 'last_page_file', type=str, nargs = '?',
-                help = 'Override the page separation with custom list in this file',
+                help = 'Override the page separation with custom list in specified file',
                 default= None)
+    parser.add_argument('-f', dest = 'from_part', action= 'store_true',
+                help = '''Get the part name from the pdf using text recognition,
+                        and store in an output file''',
+                default= None)
+    parser.add_argument('-n','-ns','-no_save', dest = 'no_save', action= 'store_true',
+            help = '''Use to not save the resulting documents, 
+                    only create part and page text files''',
+            default= None)
     parser.add_argument('-s', dest = 'simple', 
                 help = 'Simply split the pdf into 1 page chunks',
                 action = 'store_true')
@@ -225,6 +238,6 @@ if __name__ == "__main__":
     else:
         last_pages = None
     # print(args.last_pages)
-    # grouper.matchPart('eb alto saxophone/horn in eb')
-
-    splitPDFs(args.filename, args.page_names, args.simple,last_pages,args.rotate)
+    # print(grouper.matchPart('eb alto saxophone/horn in eb ',pretty = True))
+    # print(vars(args))
+    splitPDFs(**vars(args))

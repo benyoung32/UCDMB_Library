@@ -106,9 +106,9 @@ def insertImage(page, src_pix, expand = False,
         page.insert_image(r, pixmap= src_pix, rotate = 90)
     else:
         if not right_align:
-            page.insert_image(fitz.Rect(0, 0, r.x1 * CW, r.y1 / 2 - 20),
+            page.insert_image(fitz.Rect(0, 10, r.x1 * CW, r.y1 / 2 - 20),
                 pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
-            page.insert_image(fitz.Rect(0, r.y1 / 2, r.x1 * CW, r.y1 - 20), 
+            page.insert_image(fitz.Rect(0, r.y1 / 2 + 10, r.x1 * CW, r.y1 - 20), 
                 pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
         else:
             page.insert_image(fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1 / 2),
@@ -145,10 +145,10 @@ def resizeDocument(src: fitz.Document, format:str = 'letter') -> fitz.Document:
     for ipage in src:
         if ipage.rect.width > ipage.rect.height:
             fmt = fitz.paper_rect(format)  # landscape if input suggests
-            print(fmt)
+            # print(fmt)
             # temp = fmt.width
             fmt = fitz.Rect(0,0,fmt.height, fmt.width)
-            print(fmt)
+            # print(fmt)
             # fmt.height = temp
         else:
             fmt = fitz.paper_rect(format)
@@ -173,11 +173,12 @@ def openDocuments(filenames: list[str], right_align:bool = False, size:str = Non
     return out
 
 # close all documents in list/dict
-def saveDocument(doc: fitz.Document, filename:str, prefix = prefix) -> None: 
+def saveDocument(doc: fitz.Document, filename:str, prefix = prefix, close = True) -> None: 
     new_filename = os.path.dirname(filename) + "\\" + prefix + os.path.basename(filename)
     doc.save(new_filename, deflate = True, 
             deflate_images = True, garbage = 4, clean = True)
-    doc.close()
+    if close:
+        doc.close()
 
 # given list of documents, return one large document
 def combineDocuments(docs: list[fitz.Document]) -> fitz.Document:

@@ -1,6 +1,7 @@
 from ast import List
 from copy import copy
 from ctypes import Array
+from doctest import master
 import os
 import tkinter as tk
 import tkinter.filedialog
@@ -19,7 +20,7 @@ CROPBOX_ID = None
 # ROTATE = 0
 
 cv_width, cv_height = None, None
-root = None
+root = tk.Tk()
 # temp init 
 main_frame = tk.Frame(master=root)
 pdf_canvas = tk.Canvas(root)
@@ -32,20 +33,20 @@ export_button = tk.Button()
 
 rotate_var = tk.IntVar()
 rotate_entry = tk.Entry()
-fullsize_box = tk.Checkbutton()
-expand_box = tk.Checkbutton()
-twoinone_box = tk.Checkbutton()
-rightalign_box = tk.Checkbutton()
-rightalign_var = tk.BooleanVar()
-fullsize_var = tk.BooleanVar()
-expand_var = tk.BooleanVar()
-twoinone_var = tk.BooleanVar()
+# fullsize_box = tk.Checkbutton()
+# expand_box = tk.Checkbutton()
+# twoinone_box = tk.Checkbutton()
+# rightalign_box = tk.Checkbutton()
+rightalign_var = tk.BooleanVar(root)
+fullsize_var = tk.BooleanVar(master=root)
+expand_var = tk.BooleanVar(root)
+twoinone_var = tk.BooleanVar(root)
 
 path:str = None
 tl = fitz.Point(5,5)
 br = fitz.Point(100,100)
 page_br = fitz.Point()
-page_image = Image.Image()
+myimage = Image.Image()
 
 # get filepath from dialog
 def openFile() -> str: 
@@ -58,13 +59,16 @@ def openFile() -> str:
 
 # get page sized tk.PhotoImage from a fitz.Page 
 def getPageScaledImage(page: fitz.Page) -> tk.PhotoImage:
-    global page_image
+    # global page_image
     width, height = page.bound().br
     # print(width, height)
     savePageImage(page, IMAGE_PATH)
     page_image = Image.open(IMAGE_PATH)
+    # page_image.load()
     page_image = page_image.resize(size=(int(width), int(height)))
-    return ImageTk.PhotoImage(page_image)
+    my_image = img = ImageTk.PhotoImage(page_image,master=root)
+    # print(my_image)
+    return my_image
 
 def savePageImage(page: fitz.Page, filepath:str)-> None:
     pixmap= page.get_pixmap(dpi=300)
@@ -119,6 +123,8 @@ def getSettingsDict() -> dict[str, any]:
     args['expand'] = expand_var.get()
     args['right_align'] = rightalign_var.get()
     args['rotate'] = getRotation()    
+    print(args)
+    print(fullsize_var.get())    
     return args
 
 def getSettingsString() -> str:
@@ -190,9 +196,9 @@ def updateRotation() -> None:
 def init(filepath:str = None):
     global pdf_canvas, main_frame, root, tl, br, button_frame, path, cv_width, cv_height, page_br
     global rotate_var, rotate_entry, fullsize_box, fullsize_label, export_button, preview_button
-    global twoinone_box
+    global twoinone_box, page_image, fullsize_var
     # print('creating window...')
-    root = tk.Tk()
+    # root = tk.Tk()
     root.title("Crop pdf")
     root.geometry("1000x1000")
     if not filepath:
@@ -246,8 +252,8 @@ def init(filepath:str = None):
     # create buttons
 
     # draw page to the canvas
-    page_image = getPageScaledImage(page)
-    pdf_canvas.create_image(2,2,image=page_image,anchor='nw')
+    myimage = getPageScaledImage(page)
+    pdf_canvas.create_image(2,2,image=myimage,anchor='nw')
     tl = fitz.Point(2,2)
     br = copy(page_br)
     drawCropBox()

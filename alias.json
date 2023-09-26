@@ -2,7 +2,9 @@
     "flute": [
         "flute",
         "flutes",
-        "fl"
+        "fl",
+        "flute/piccolo",
+        "fl/picc"
     ],
     "piccolo": [
         "piccolo",
@@ -55,7 +57,8 @@
         "baritone horn",
         "euphonium",
         "bar",
-        "baritone bc"
+        "baritone bc",
+        "marching baritone"
     ],
     "baritone tc": [
         "baritone tc",
@@ -71,19 +74,20 @@
         "glockenspiel",
         "glock"
     ],
-    "snare": [
+    "snare drum": [
         "snare",
         "snare drum",
         "snares"
     ],
-    "tenors": [
+    "tenor drum": [
         "quads",
         "quad",
         "quad drums",
         "tenor drum",
-        "tenor drums"
+        "tenor drums",
+        "tenors"
     ],
-    "bass": [
+    "bass drum": [
         "basses",
         "bass drum",
         "bass drums",
@@ -93,6 +97,18 @@
         "cymbal",
         "cymbals",
         "cym"
+    ],
+    "electric bass": [
+        "electric bass"
+    ],
+    "xylophone": [
+        "xylophone"
+    ],
+    "aux perc": [
+        "auxillary",
+        "aux perc",
+        "auxillary percussion",
+        "aux percussion"
     ],
     "score": [
         "score",

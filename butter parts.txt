@@ -1,0 +1,97 @@
+alto saxophone 1
+flute 1
+flute 1
+clarinet 1
+alto saxophone 1
+flute 1
+flute 1
+clarinet 1
+flute 1
+flute 1
+flute 1
+flute 2
+flute 2
+flute 2
+clarinet 1
+clarinet 1
+clarinet 1
+clarinet 1
+clarinet 1
+clarinet 1
+clarinet 2
+clarinet 2
+clarinet 2
+alto saxophone 1
+alto saxophone 1
+alto saxophone 2
+alto saxophone 2
+tenor saxophone 0
+tenor saxophone 0
+flute 0
+flute 0
+trumpet 1
+trumpet 1
+trumpet 1
+trumpet 2
+trumpet 2
+trumpet 2
+trumpet 3
+trumpet 3
+trumpet 3
+trumpet 3
+trumpet 3
+trumpet 3
+trumpet 3
+trumpet 3
+trumpet 3
+trumpet 3
+trumpet 3
+trumpet 3
+nan 0
+nan 0
+nan 0
+nan 0
+nan 0
+nan 0
+nan 0
+nan 0
+trombone 1
+trombone 1
+trombone 1
+trombone 2
+trombone 2
+trombone 2
+trombone 2
+trombone 2
+trombone 2
+trombone 2
+trombone 2
+trombone 2
+baritone bc 0
+baritone bc 0
+baritone tc 0
+baritone tc 0
+sousaphone 0
+sousaphone 0
+sousaphone 0
+bass drum 0
+electric bass 0 
+glock 
+xylophone
+nan 0
+nan 0
+snare drum 0
+snare drum 0
+snare drum 0
+snare drum 0
+snare drum 0
+snare drum 0
+quads 0
+nan 0
+cymbal 0
+cymbal 0
+bass drum 2
+bass drum 2
+nan 0
+nan 0
+nan 0
