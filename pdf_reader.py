@@ -1,5 +1,6 @@
 from turtle import right
 from xml.dom.minidom import Document
+import pdf_grouper as grouper   
 import fitz
 import argparse
 import sys
@@ -58,8 +59,9 @@ def processDocs(filenames, prefix = prefix, **kwargs) -> list:
     new_files = []
     docs = openDocuments(filenames, size='letter')
     for file,doc in docs.items():
+        print(file)
         alt = duplicateAndScale(doc, **kwargs)
-        new_filename = os.path.dirname(file) + "\\" +prefix + os.path.basename(file)
+        new_filename = os.path.dirname(file) + "\\Printable Parts\\" +prefix + os.path.basename(file)
         saveDocument(alt, file)
         doc.close()
         new_files.append(new_filename)

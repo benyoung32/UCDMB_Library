@@ -30,6 +30,7 @@ page:fitz.Page = None
 # button temp vb init
 preview_button = tk.Button()
 export_button = tk.Button() 
+crop_folder_button = tk.Button()
 
 rotate_var = tk.IntVar()
 rotate_entry = tk.Entry()
@@ -123,8 +124,8 @@ def getSettingsDict() -> dict[str, any]:
     args['expand'] = expand_var.get()
     args['right_align'] = rightalign_var.get()
     args['rotate'] = getRotation()    
-    print(args)
-    print(fullsize_var.get())    
+    # print(args)
+    # print(fullsize_var.get())    
     return args
 
 def getSettingsString() -> str:
@@ -142,6 +143,13 @@ def getSettingsString() -> str:
 def printSettingsString() -> None:
     print(getSettingsString())
 
+# apply current settings to the folder where the sample came from
+def cropFolder() -> None:
+    # print(path)
+    folder= os.path.dirname(path)
+    files = reader.getSubFiles(folder)
+    # print(files)
+    reader.processDocs(files, reader.prefix, **getSettingsDict())
 # get rotation from entry box, sanitize input
 def getRotation() -> int:
     global rotate_entry
@@ -222,6 +230,8 @@ def init(filepath:str = None):
                                width = 10, height = 1,text='Create Preview')
     export_button = tk.Button(button_frame, command=printSettingsString,
                               width = 10, height = 1,text='Export Settings')
+    crop_folder_button = tk.Button(button_frame, command=cropFolder,
+                              width = 20, height = 1, text = 'Apply to folder')
     rotate_label = tk.Label(button_frame, text='Rotation')
     rotate_entry = tk.Entry(button_frame)
     fullsize_label = tk.Label(button_frame, text='Full Size?')
@@ -236,6 +246,7 @@ def init(filepath:str = None):
     button_frame.grid(row=0,column=1,sticky='nw',pady=PADDING,padx=PADDING)
     preview_button.grid(row=0,column=0,sticky='nwes')
     export_button.grid(row=0,column=1,sticky='nwes')
+    crop_folder_button.grid(row=6,column=0,sticky='nwes')
     rotate_entry.grid(row=1,column=1,sticky='nwes')
     rotate_label.grid(row=1,column=0,sticky ='nwes')
     fullsize_label.grid(row=2,column=0,sticky = 'nwes')
