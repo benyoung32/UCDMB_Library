@@ -170,7 +170,7 @@ def createPreview():
     # print(args)
     doc = reader.openDocuments(path,size='a4')[path]
     # alter document using settings 
-    newdoc = reader.duplicateAndScale(doc,**args)
+    newdoc = reader.createCroppedDocument(doc,**args)
     # newdoc.save('hm.pdf',deflate = True, 
     #             deflate_images = True, garbage = 4, clean = True)
     new_br = newdoc[0].bound().br

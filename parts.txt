@@ -1,59 +1,13 @@
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-Clarinet 
-Clarinet 
-Clarinet 
-Alto Saxophone 1
-Alto Saxophone 1
-Alto Saxophone 2
-Alto Saxophone 2
-Tenor Saxophone 
-Tenor Saxophone 
-Baritone Saxophone 
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-Trumpet 3
-Trumpet 3
-Trumpet 3
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-nan 0
-Baritone Bc 
-Baritone Bc 
-Baritone Bc 2
-Baritone Bc 2
-Sousaphone 
-Sousaphone 
-Sousaphone 
-Electric Bass 
-nan 0
-Xylophone 
+Tenor Drum 
+Tenor Drum 
+Tenor Drum 
+Tenor Drum 
+Tenor Drum 
+Tenor Drum 
 Snare Drum 
 Snare Drum 
-Snare Drum 
-nan 0
+Tenor Drum 
+Tenor Drum 
+Bass Drum 
+Bass Drum 
 Cymbal 
-Cymbal 
-Bass Drum 
-Bass Drum 
-nan 0
-Bass Drum 
-nan 0

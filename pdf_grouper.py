@@ -23,7 +23,6 @@ for k,v in alias.items():
 folderlist = ""
 files = None
 
-DRUMS = [matchPart(drum) for drum in ['snare','quads','cymbals','basses']]
 PART_NUMBERS = ['1','2','3','4','5']
 PART_NUMBERS_FANCY = ['1st','2nd','3rd','4th','5th']
 REMOVED_CHARS = ['\\','/',':','.','_','-','bb','Bb','&','+','pdf']
@@ -78,8 +77,9 @@ def main(folderlist: list[str], parts: list[str], output:str, combine:bool = Fal
     drum_parts = [drum for drum in unique_parts if drum in DRUMS]
     unique_parts = [part for part in unique_parts if part not in drum_parts]
     unique_parts.extend(drum_parts)
-    print(unique_parts)
+    # print(unique_parts)
     part_doc_dict = {}
+
     for part in unique_parts:
         files = found_parts[part]
         # print(files)
@@ -104,20 +104,34 @@ def main(folderlist: list[str], parts: list[str], output:str, combine:bool = Fal
 
         reader.saveDocument(combined_doc, new_filepath, '', close = False)
     if combine:
-        for part in unique_parts:
-            # drums = [matchPart(drum) for drum in ['snare','quads','cymbals','basses']]
-            # print every count of drums because their pages are whole pages, not halves
-            if part in DRUMS:
-                count = parts.count(part)
-            else:
-                count = ceil(parts.count(part) / 2)
-            # for each requested song, put each part count times
+        instrument_groups = []
+        i = 0
+        while (i < len(unique_parts)):
+            instrument = unique_parts[i].split()[0]
+            instrument_groups.append([unique_parts[i]])
+            if i == len(unique_parts) - 1:
+                break
+            while (True and i < len(unique_parts) - 1):
+                i = i + 1 
+                next_instrument = unique_parts[i].split()[0]
+                if instrument == next_instrument:
+                    instrument_groups[-1].append(unique_parts[i])
+                else:
+                    break
+        print(instrument_groups)
+        for group in instrument_groups:
             for j in range(len(folderlist)):
-                part_docs = list(part_doc_dict[part])
-                for i in range(count):
-                    if j >= len(part_docs):
-                        break
-                    final_combined_doc.insert_pdf(part_docs[j])
+                for part in group:
+                    if part in DRUMS:
+                        count = parts.count(part)
+                    else:
+                        count = ceil(parts.count(part) / 2)
+                    # for each requested song, put each part count times
+                    part_docs = list(part_doc_dict[part])
+                    for i in range(count):
+                        if j >= len(part_docs):
+                            break
+                        final_combined_doc.insert_pdf(part_docs[j])
         final_combined_doc.save(output + '\\all_parts' + '.pdf')
 
 def findMatches(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
@@ -141,30 +155,24 @@ def findMatches(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
     # for i in range(len(parts)):
     #     parts[i] = matchPart(parts[i])
     for folder in folders:
-        files = reader.getSubFiles(folder, [], ignore_altered=False,recursive=False)
+        files = reader.getSubFiles(folder, [],ignore_prefix= None, recursive=False)
         # print(files)
         if len(files) == 0: # no files found
-            print("no pdf files found: " + os.basename(os.path.normpath(folder)))
+            print("no pdf files found: " + os.path.basename(os.path.normpath(folder)))
             continue
-        new_part_dict = getPartNameFromPath(files,parts)
+        new_part_dict = createPartDictFromPaths(files,parts)
         # printDict(new_part_dict)
         for k,v in new_part_dict.items():
             if k not in part_dict.keys():
                 part_dict[k] = []
-            # print(type(v))
             if type(v) is list:
-                # print('sublist')
                 for subpath in v:
-                    # print(subpath)
                     part_dict[k].append(subpath)
-                    # print(part_dict[k])
             else:
                 part_dict[k].append(v)
     return part_dict
 
-# given part name, try to find match in alias
-
-def getPartNameFromPath(paths:list[str], parts:list[str]) -> dict[str,str]:
+def createPartDictFromPaths(paths:list[str], parts:list[str]) -> dict[str,str]:
     '''
     From list of filepaths, paths, matches each path to a part name,
     searching for parts in parts list
@@ -173,32 +181,10 @@ def getPartNameFromPath(paths:list[str], parts:list[str]) -> dict[str,str]:
     :return: Returns a dict with a key for each part in parts, 
     with a list of matching paths as the value
     '''
-    cleaned_files = [None] * len(paths)
-    for i in range(len(paths)):
-        cleaned_files[i] = os.path.basename(os.path.normpath(paths[i]))
-        for rm in REMOVED_CHARS:
-            cleaned_files[i] = cleaned_files[i].replace(rm, ' ')
-            cleaned_files[i] = cleaned_files[i].strip()
     part_dict = {}
     for i in range(len(paths)):
-        words = cleaned_files[i].split()
-        # print(words)
-        name_extra = ''
-        instrument = ''
-        part_number = ' 1'
-        for j in range(len(words)-1,-1,-1):
-            word = words[j].lower()
-            # print(word)
-            if word in IGNORED_WORDS: # ignored words
-                pass
-            elif word in ['saxophone', 'sax', 'bugle', 'drum', 'drums', 'horn', 'bc', 'tc']: # recombine "descriptor" words into preceding word
-                name_extra = ' ' + word
-            elif word in alias_flat: # make sure that words like saxophone or other identifying words make it through
-                instrument = word # make sure that the word gets through
-            elif word in PART_NUMBERS or word in PART_NUMBERS_FANCY: # combine part numbers into preceding word, e.g. [...'saxophone', '1'] -> [...,'saxophone 1', ...]
-                part_number = ' ' + word[0]
-        part_name = ''.join([instrument,name_extra,part_number])
-        part_dict[matchPart(part_name)] = paths[i]
+        part_name = getPartNameFromString(paths[i])
+        part_dict[part_name] = paths[i]
     found_parts = {}
     for part in parts:
         part_number = part[-1]
@@ -233,6 +219,35 @@ def getPartNameFromPath(paths:list[str], parts:list[str]) -> dict[str,str]:
         #     found_parts[part] = ERROR_PATH
     return found_parts # keep word as long as its not in all strings
 
+def getPartNameFromString(input:str) -> str:
+    '''
+    From string, split up string into words and search
+    for matching part name from alias. Works best on filepaths
+    :param input: input string
+    :return: returns found part name from within input string
+    '''
+    # first clean file name, remove seperators etc.
+    cleaned_input = os.path.basename(os.path.normpath(input))
+    for rm in REMOVED_CHARS:
+        cleaned_input = cleaned_input.replace(rm, ' ')
+        cleaned_input = cleaned_input.strip()
+    words = cleaned_input.split()
+    name_extra = ''
+    instrument = ''
+    part_number = ' 1'
+    for j in range(len(words)-1,-1,-1):
+        word = words[j].lower()
+        if word in IGNORED_WORDS: # ignored words
+            pass
+        elif word in ['saxophone', 'sax', 'bugle', 'drum', 'drums', 'horn', 'bc', 'tc']: # recombine "descriptor" words into preceding word
+            name_extra = ' ' + word
+        elif word in alias_flat: # make sure that words like saxophone or other identifying words make it through
+            instrument = word # make sure that the word gets through
+        elif word in PART_NUMBERS or word in PART_NUMBERS_FANCY: # combine part numbers into preceding word, e.g. [...'saxophone', '1'] -> [...,'saxophone 1', ...]
+            part_number = ' ' + word[0]
+    # print(''.join([instrument,name_extra,part_number]), input)
+    return matchPart(''.join([instrument,name_extra,part_number]))
+
 def matchPart(part:str, quiet:bool = False, pretty = False) -> str:
     '''
     Finds a matching standardized part name from input part 
@@ -249,38 +264,28 @@ def matchPart(part:str, quiet:bool = False, pretty = False) -> str:
     if part == '':
         return part_name
     words = part.split()
+    words = [word for word in words if word not in ['in','eb','bb','full','ab','c','f']]
     part_number = getPartNumber(part)
-    # words = [word for word in words if word not in ['in','eb','bb','full','ab','c']]
     # print(words)
     # if words[-1] in ['n/a']:
-    #     part_number = 0
-    #     name = ' '.join(words[0:-1])
-    # else:
-    #     for c in words[-1]:
-    #         if c in PART_NUMBERS:
-    #             part_number = c
-    #             name = ' '.join(words[0:-1])
-    #             break
-    #     else:
-    #         name = part.lower()
-    #         part_number = 0 
-    # for p, names in alias.items():
-    #     for n in names:
-    #         if name == n:
-    #             part_name = p
-    #             break
-    # if part_name == ERROR_PART:
+    name = ' '.join(words[0:-1]) 
+    for p, names in alias.items():
+        for n in names:
+            if name == n:
+                part_name = p
+                break
+    if part_name == ERROR_PART:
         # double check all words for looser match
-    for word in words:
-        for p, names in alias.items():
-            for n in names:
-                if word == n:
-                    part_name = p
-                    break
+        for word in words:
+            for p, names in alias.items():
+                for n in names:
+                    if word == n:
+                        part_name = p
+                        break
+                else:
+                    continue
             else:
                 continue
-        else:
-            continue
     # still nothing found
     if part_name == ERROR_PART:
         if not quiet:
@@ -296,7 +301,6 @@ def matchPart(part:str, quiet:bool = False, pretty = False) -> str:
     else:
         return ' '.join([part_name, str(part_number)])
 
-# given part name string, extract part number by searching for numeric
 def getPartNumber(partname:str) -> str:
     for c in partname[::-1]:
         if c in PART_NUMBERS:
@@ -316,6 +320,8 @@ def readFile(filepath:str) -> list[str]:
             reqs.append(line.strip())
         file.close()
     return reqs
+
+DRUMS = [matchPart(drum) for drum in ['snare','quads','cymbals','basses']]
 
 if __name__ == "__main__":
     # init(openFolder())

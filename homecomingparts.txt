@@ -11,7 +11,7 @@ Alto Saxophone 2nd
 Alto Saxophone 1st
 Alto Saxophone 2nd
 Alto Saxophone 1st
-Alto Saxophone 3rd
+Alto Saxophone 2rd
 Alto Saxophone 1st
 Alto Saxophone 1st
 Alto Saxophone 1st
@@ -37,15 +37,9 @@ Clarinet 1st
 Snare Drums
 Snare Drums
 Snare Drums
-Snare Drums
-Snare Drums
 Bass Drums
 Bass Drums
 Bass Drums
-Bass Drums
-Bass Drums
-Cymbals
-Cymbals
 Cymbals
 Cymbals
 Cymbals

@@ -1,5 +1,3 @@
-from turtle import right
-from xml.dom.minidom import Document
 import pdf_grouper as grouper   
 import fitz
 import argparse
@@ -12,64 +10,123 @@ FORMAT = fitz.paper_rect('letter')
 
 CW = 0.85 # cropped width
 
-def clearAlt() -> None:
-    for filename in os.listdir(os.getcwd()):
-        if filename.endswith('.pdf') and (prefix in filename):
-            os.remove(filename)
-
-def getSubFiles(filenames, files = [], ignore_altered = True, recursive = True) -> list[str]:
-    if not type(filenames) == list:
-        filenames = [filenames]
-    for f in filenames:
-        if os.path.exists(f):
-            if os.path.isdir(f):
-                # print("folder found")
-                if recursive:
-                    getSubFiles(glob.glob(f + "/*"), files, ignore_altered)
-                else:
-                    getSubFiles(glob.glob(f + '/*.pdf'),files, ignore_altered)
-            if '.pdf' in f and (not ignore_altered or prefix not in f):
-                files.append(f)
-    return files
-
-def getSubFolders(filenames, folders = [], ignore_altered = True) -> list[str]:
-    if not type(filenames) == list:
-        filenames = [filenames]
-    for f in filenames:
-        if os.path.exists(f):
-            if os.path.isdir(f):
-                folders.append(f)
-                getSubFolders(glob.glob(f + "/*"), folders, ignore_altered)
-        else:
-            print('invalid path')
-    return folders
-
-def test(filename = 'pdfs', **kwargs) -> None:
+def main(filename = 'pdfs', **kwargs) -> None:
+    '''
+    Main function. Opens filenames, passes kwargs to processDocs
+    '''
     files = getSubFiles(filename)
     print('found:')
     print(files)
     processDocs(files, **kwargs)
 
-# open, convert, close and save list of filenames
-# returns list of new filenames
-def processDocs(filenames, prefix = prefix, **kwargs) -> list:
-    print(kwargs)
-    if not type(filenames) == list:
-        filenames = [filenames]
+def getSubFiles(paths: list[str], files:list[str] = [], 
+                ignore_prefix:str = prefix, recursive:bool = True) -> list[str]:
+    '''
+    For each path in paths, append pdf path to files list. 
+    If path is a folder, also apend all paths within folder.
+    If recursive is true, check folders within folders
+    Ignore any paths that contain ignore_prefix
+    :param paths: Paths to search
+    :param files: Currently found files (for recursion)
+    :param ignore_prefix: Ignore any files containing this substring
+    :param recursive: If true, recurse into subfolders as well 
+    :return: List of pdf files found
+    '''
+    if not type(paths) == list:
+        paths = [paths]
+    for f in paths:
+        if os.path.exists(f):
+            if os.path.isdir(f):
+                # print("folder found")
+                if recursive:
+                    getSubFiles(glob.glob(f + "/*"), files, ignore_prefix)
+                else:
+                    getSubFiles(glob.glob(f + '/*.pdf'),files, ignore_prefix)
+            if '.pdf' in f and (not ignore_prefix or ignore_prefix not in f):
+                files.append(f)
+    return files
+
+def getSubFolders(folderpaths: list[str], folders: list[str] = []) -> list[str]:
+    '''
+    Search through each path in folderpaths for subfolders.
+    Append subfolders to folders list, and recursively search subfolders
+    See also, getSubFiles
+    :param folderpaths: list of folders to search throuhg
+    :param folders: list of folders found already (for recursion)
+    :return: List of found folder paths
+    '''
+    if not type(folderpaths) == list:
+        folderpaths = [folderpaths]
+    for f in folderpaths:
+        if os.path.exists(f):
+            if os.path.isdir(f):
+                folders.append(f)
+                getSubFolders(glob.glob(f + "/*"), folders)
+        else:
+            print('invalid path')
+    return folders
+
+def processDocs(filepaths: list[str], prefix:str = prefix, 
+                auto_expand:bool = True, **kwargs) -> list:
+    '''
+    Primarily wrapper for :func:`pdf_reader.duplicateAndScale`
+    See that function for more info about kwargs.
+    For each file in filenames, open as document, apply crop using
+    :func:`pdf_reader.createCroppedDocument` and args in kwargs. 
+    Save altered file with 'prefix' inside new folder. 
+    :param filenames: List of paths to pdfs that will be processed
+    :param prefix: string to append to beginning of altered filepath when saving
+    :param auto_expand: If true, check if processed doc is in grouper.DRUMS
+                        and should be expanded.
+    :param kwargs: Kwargs to be passed along to :func:`pdf_reader.createCroppedDocument`
+    :return: Returns list of paths for the newly created pdf files
+    '''
+    # print(kwargs)
+    if not type(filepaths) == list:
+        filepaths = [filepaths]
     new_files = []
-    docs = openDocuments(filenames, size='letter')
+    docs = openDocuments(filepaths, size='letter')
+    new_folder = os.path.dirname(filepaths[0]) + '\\Printable Parts'
+    try:
+        os.mkdir(new_folder)
+    except:
+        # pass
+        print('new folder already exists')
+    # print(grouper.DRUMS)
     for file,doc in docs.items():
-        print(file)
-        alt = duplicateAndScale(doc, **kwargs)
-        new_filename = os.path.dirname(file) + "\\Printable Parts\\" +prefix + os.path.basename(file)
-        saveDocument(alt, file)
+        # print(file)
+        partname = grouper.matchPart(grouper.getPartNameFromString(file),quiet = True)
+        partname = partname[:-1] + '0'
+        if auto_expand:
+            # print(partname)
+            if partname in grouper.DRUMS:
+                print('expanding', partname)    
+                kwargs['expand'] = True
+            else:
+                kwargs['expand'] = False
+        alt = createCroppedDocument(doc, **kwargs)
+        new_filename = new_folder + '\\' + os.path.basename(file)
+        saveDocument(alt, new_filename, prefix)
         doc.close()
         new_files.append(new_filename)
     return new_files
 
-# convert letter size paper to two small sized documents
-def duplicateAndScale(src, full_size=False, expand=False, two_in_one=False,
-                      margins = [0, 0, 0, 0], rotate = 0, right_align = False, **kwargs) -> fitz.Document:
+def createCroppedDocument(src:fitz.Document, full_size:bool=False, 
+                      expand:bool=False, two_in_one:bool=False,
+                      margins:list[int] = [0, 0, 0, 0], rotate = 0, 
+                      right_align:bool = False, **kwargs) -> fitz.Document:
+    '''
+    From source document 'src', crop the page according to 'margins' 
+    and insert cropped page as image into output document. 
+    Functions significantly differently if 'expand' is True:
+    If expand, crop document then insert image into full pdf, landscape
+    Else, insert cropped page twice on top and bottom into output pdf
+    :param src: Source document to alter
+    :param full_size: Is the input full size, 
+                      or should the cropping begin from half of the page
+    :param 
+
+    '''
     doc = fitz.Document(rect=FORMAT)  # create new empty doc
     top_mg, left_mg, right_mg, bottom_mg = margins
     # if right_align:
@@ -118,7 +175,7 @@ def insertImage(page, src_pix, expand = False,
             page.insert_image(fitz.Rect(r.x1 * (1 - CW), r.y1 / 2, r.x1, r.y1), 
                 pixmap= src_pix, rotate = rotate, keep_proportion = True)
 
-def rightAlign(doc: fitz.Document):
+def rightAlign(doc: fitz.Document) -> fitz.Document:
     out_doc = fitz.Document(rect=FORMAT)
     for page in doc:
         r = page.mediabox
@@ -130,7 +187,7 @@ def rightAlign(doc: fitz.Document):
                               pixmap=page_pixmap)
     return out_doc
 
-def leftAlign(doc:fitz.Document) -> Document:
+def leftAlign(doc:fitz.Document) -> fitz.Document:
     out_doc = fitz.Document(rect=FORMAT)
     for page in doc:
         r = page.mediabox
@@ -158,8 +215,6 @@ def resizeDocument(src: fitz.Document, format:str = 'letter') -> fitz.Document:
         page.show_pdf_page(page.rect, src, ipage.number)
     return doc
 
-
-# open given list of filenames into document objects 
 def openDocuments(filenames: list[str], right_align:bool = False, size:str = None) -> dict[str, fitz.Document]:
     if not type(filenames) == list:
         filenames = [filenames]
@@ -174,7 +229,6 @@ def openDocuments(filenames: list[str], right_align:bool = False, size:str = Non
         out[filename] = doc
     return out
 
-# close all documents in list/dict
 def saveDocument(doc: fitz.Document, filename:str, prefix = prefix, close = True) -> None: 
     new_filename = os.path.dirname(filename) + "\\" + prefix + os.path.basename(filename)
     doc.save(new_filename, deflate = True, 
@@ -182,7 +236,6 @@ def saveDocument(doc: fitz.Document, filename:str, prefix = prefix, close = True
     if close:
         doc.close()
 
-# given list of documents, return one large document
 def combineDocuments(docs: list[fitz.Document]) -> fitz.Document:
     out_doc = fitz.Document()
     for doc in docs:
@@ -190,11 +243,12 @@ def combineDocuments(docs: list[fitz.Document]) -> fitz.Document:
     return out_doc
 
 def strtobool (val):
-    """Convert a string representation of truth to true (1) or false (0).
+    '''
+    Convert a string representation of truth to true (1) or false (0).
     True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
     are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
     'val' is anything else.
-    """
+    '''
     val = val.lower()
     if val in ('y', 'yes', 't', 'true', 'on', '1'):
         return True
@@ -240,10 +294,10 @@ if __name__ == "__main__":
         for path, doc in docs.items():
             saveDocument(leftAlign(doc), path)
     elif (len(sys.argv) > 1):
-        test(**vars(args))
+        main(**vars(args))
         # test(sys.argv[1])
     else:
-        test()
+        main()
     
     # resizeDocument(fitz.open(parser.parse_args().filename))
 
