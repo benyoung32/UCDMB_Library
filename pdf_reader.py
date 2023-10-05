@@ -124,8 +124,7 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
     :param src: Source document to alter
     :param full_size: Is the input full size, 
                       or should the cropping begin from half of the page
-    :param 
-
+    :param;
     '''
     doc = fitz.Document(rect=FORMAT)  # create new empty doc
     top_mg, left_mg, right_mg, bottom_mg = margins
@@ -142,6 +141,11 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
             croprect = fitz.Rect(left_mg, top_mg, r.x1 - right_mg, r.y1 / 2 - bottom_mg)
         else:
             croprect = fitz.Rect(r.x1 / 2 - top_mg, bottom_mg, r.x1 - right_mg, r.y1 - left_mg)
+        print(margins)
+        print(page.mediabox)
+        print(croprect)
+        page.add_rect_annot(croprect)
+        src.save('altered.pdf')
         if two_in_one: # for duplicating ones that are already half size and two pages
             page.set_cropbox(croprect)
             src_pix = page.get_pixmap(dpi = 300)
@@ -153,6 +157,7 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
                 insertImage(new_page2, src_pix2, expand,rotate,right_align)
         else:
             page.set_cropbox(fitz.Rect(croprect))
+            print(page.cropbox_position)
             src_pix = page.get_pixmap(dpi = 300)
             insertImage(new_page, src_pix, expand, rotate,right_align)
     return doc 
@@ -165,10 +170,10 @@ def insertImage(page, src_pix, expand = False,
         page.insert_image(r, pixmap= src_pix, rotate = 90)
     else:
         if not right_align:
-            page.insert_image(fitz.Rect(0, 10, r.x1 * CW, r.y1 / 2 - 20),
+            page.insert_image(fitz.Rect(0, 5, r.x1 * CW, r.y1 / 2 - 5),
                 pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
-            page.insert_image(fitz.Rect(0, r.y1 / 2 + 10, r.x1 * CW, r.y1 - 20), 
-                pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
+            page.insert_image(fitz.Rect(0, r.y1 / 2 + 5, r.x1 * CW, r.y1 - 5), 
+                pixmap= src_pix, rotate = rotate, keep_proportion = False)
         else:
             page.insert_image(fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1 / 2),
                 pixmap= src_pix, rotate = rotate, keep_proportion = True)

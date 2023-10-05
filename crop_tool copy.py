@@ -1,7 +1,6 @@
 from copy import copy
 import os
 import tkinter as tk
-# import copy as copy
 import tkinter.filedialog
 import fitz
 from numpy import full, var
@@ -10,31 +9,34 @@ from PIL import Image,ImageTk
 PADDING = 10
 RATIO = 8.5/11
 SCALE = 1
-SHIFT_HELD = 262145
+SHIFT_HELD1 = 262145
+SHIFT_HELD2 = 262185
 IMAGE_PATH = "temp.png"
-CROPBOX_ID = None
 
 class CropTool(tk.Toplevel):
-    def __init__(self,parent,filepath=None):
+    def __init__(self,parent,filepath=None) -> None:
         super().__init__(parent)
         self.title("Crop pdf")
         self.geometry("1000x1000")
+        self.history = []
+        self.keyvar = tk.StringVar()
         self.rotate_var = tk.IntVar(self)
         self.rightalign_var = tk.BooleanVar(self)
         self.fullsize_var = tk.BooleanVar(self)
         self.expand_var = tk.BooleanVar(self)
         self.twoinone_var = tk.BooleanVar(self)
-
+        self.CROPBOX_ID = None
+        print(self.focus_get())
         if not filepath:
             self.path = self.openFile()
         else:
             self.path = filepath
-        # path = 'C:\\Users\\benyo\\Code\\UCDMB_Library\\pdfs\\Everybody Talks-Tenor_Saxophone.pdf'
+        # self.path = "hm.pdf"
         doc = reader.openDocuments(self.path)[self.path]
         page = doc[0]
-        page_br = page.bound().br
+        self.page_br = page.bound().br
         # set up canvases 
-        self.cv_width, self.cv_height = (page_br.x * SCALE,page_br.y * SCALE)
+        self.cv_width, self.cv_height = (self.page_br.x * SCALE,self.page_br.y * SCALE)
         self.main_frame = tk.Frame(master=self,
                     width=self.cv_width * 2 + PADDING * 4, 
                     height = self.cv_height + PADDING * 4,bg='red')
@@ -74,20 +76,64 @@ class CropTool(tk.Toplevel):
         myimage = self.getPageScaledImage(page)
         self.pdf_canvas.create_image(2,2,image=myimage,anchor='nw')
         self.tl = fitz.Point(2,2)
-        self.br = copy(page_br)
-        self.drawCropBox()
-        self.bind('<KeyPress>', self.onKeyPress)
-        self.grab_set()
+        self.br = copy(self.page_br)
+        self.pdf_canvas.bind('<KeyPress>', self.keydown)
+        self.pdf_canvas.bind('<KeyRelease>', self.keyup)
+        
+        self.pdf_canvas.bind('<Button-1>', self.onClick)
+        self.pdf_canvas.focus_set()
+        self.after(30,self.checkKeys)
+        # self.focus_force()
+        # self.grab_set()
+        # print(self.focus_get())
+        self.bind("<Destroy>", self.kill_root)
         self.mainloop()
+    def checkKeys(self):
+        tl, br = self.tl, self.br
+        key_string = self.keyvar.get()
+        # print(key_string)
+        negative = False
+        if 'Shift' in key_string:
+            negative = True
+        if 'Control_L' in key_string:
+            scale = 2
+        else:
+            scale = 1
+        if  'Left' in key_string:
+            if negative:
+                tl.x = tl.x - scale
+            else:
+                br.x = br.x - scale
+        if 'Up' in key_string:
+            if negative:
+                tl.y = tl.y - scale
+            else:
+                br.y = br.y - scale
+        if 'Right' in key_string:
+            if negative:
+                tl.x = tl.x  + scale
+            else:
+                br.x = br.x + scale
+        if 'Down' in key_string:
+            if negative:
+                tl.y = tl.y + scale
+            else:
+                br.y = br.y + scale
+        self.drawCropBox()
+        self.after(30,self.checkKeys)
+    def onClick(self, event):
+        # print('beep')
+        self.pdf_canvas.focus_set()
 
     def openFile(self) -> str: 
         # get file info
-        answer = tk.filedialog.askopenfile(parent=self,
+        answer = tk.filedialog.askopenfile(parent=self.master,
                                 initialdir=os.getcwd(),
                                 title="Please select a file:",filetypes=[('Pdf File', '*.pdf')])
         # return filepath
+        self.grab_set()
+        self.focus_get()
         return answer.name
-
     # get page sized tk.PhotoImage from a fitz.Page 
     def getPageScaledImage(self, page: fitz.Page) -> tk.PhotoImage:
         # global page_image
@@ -104,56 +150,31 @@ class CropTool(tk.Toplevel):
     def savePageImage(self, page: fitz.Page, filepath:str)-> None:
         pixmap= page.get_pixmap(dpi=300)
         pixmap.save(filepath)
-
     # draw current cropbox onto pdf_canvas, replacing previous
     def drawCropBox(self) -> None:
-        if (CROPBOX_ID):
-            self.pdf_canvas.delete(CROPBOX_ID)
+        if (self.CROPBOX_ID):
+            self.pdf_canvas.delete(self.CROPBOX_ID)
         self.CROPBOX_ID = self.pdf_canvas.create_rectangle(self.tl.x, 
                         self.tl.y, self.br.x, self.br.y,outline='dodger blue',width=1)
         # pdf_canvas.create_rectangle(10,10,100,100)
 
-    def onKeyPress(self,event):
+    def onShiftKeyPress(self,event) -> None:
         tl, br = self.tl, self.br
-        sym = event.keysym
-        negative = False
-        if event.state == SHIFT_HELD:
-            negative = True
-        if sym == 'Left':
-            if negative:
-                tl.x = tl.x - 1
-            else:
-                br.x = br.x - 1
-        elif sym == 'Up':
-            if negative:
-                tl.y = tl.y - 1
-            else:
-                br.y = br.y - 1
-        elif sym == 'Right':
-            if negative:
-                tl.x = tl.x  + 1
-            else:
-                br.x = br.x + 1
-        elif sym == 'Down':
-            if negative:
-                tl.y = tl.y + 1
-            else:
-                br.y = br.y + 1
-        else:
-            return
-        self.drawCropBox()
-
+        print('shift pressed')
+        return
+        
     def getSettingsDict(self) -> dict[str, any]:
         args = {}
+        tl, br = self.tl, self.br
+        print(tl, br)
         args['filename'] = self.path
-        args['margins'] = (int(tl.x), int(tl.y), int(page_br.x - br.x), int(page_br.y - br.y))
+        args['margins'] = (int(tl.y), int(tl.x) + 10, int(self.page_br.x - br.x) + 10, int(self.page_br.y - br.y))
         args['full_size'] = self.fullsize_var.get()
         args['two_in_one'] = self.twoinone_var.get()
         args['expand'] = self.expand_var.get()
         args['right_align'] = self.rightalign_var.get()
         args['rotate'] = self.getRotation()    
         # print(args)
-        # print(fullsize_var.get())    
         return args
 
     def getSettingsString(self) -> str:
@@ -170,7 +191,6 @@ class CropTool(tk.Toplevel):
 
     def printSettingsString(self) -> None:
         print(self.getSettingsString())
-
     # apply current settings to the folder where the sample came from
     def cropFolder(self) -> None:
         # print(path)
@@ -180,22 +200,21 @@ class CropTool(tk.Toplevel):
         reader.processDocs(files, reader.prefix, **self.getSettingsDict())
     # get rotation from entry box, sanitize input
     def getRotation(self) -> int:
-        global rotate_entry
-        rotation = rotate_entry.get()
+        rotation = self.rotate_entry.get()
         try:
             rotation = int(rotation)
             if not (rotation in [0,90,270]):
                 raise Exception('invalid rotation value')
         except:
             # print('invalid rotation value')
-            rotate_entry.delete(0)
+            self.rotate_entry.delete(0)
             rotation = 0
         return rotation
 
-    def createPreview(self):
+    def createPreview(self) -> None:
         args = self.getSettingsDict()
         # print(args)
-        doc = reader.openDocuments(self.path,size='a4')[path]
+        doc = reader.openDocuments(self.path,size='a4')[self.path]
         # alter document using settings 
         newdoc = reader.createCroppedDocument(doc,**args)
         # newdoc.save('hm.pdf',deflate = True, 
@@ -209,7 +228,6 @@ class CropTool(tk.Toplevel):
         preview_canvas = tk.Canvas(preview_window,bg='pink',width=new_br.x,height=new_br.y)
         preview_canvas.create_image(2,2,image=img,anchor='nw')
         preview_canvas.pack()
-
     # rotate viewing frame to match with rotation value
     def updateRotation(self) -> None:
         # global main_frame, pdf_canvas, rotate_var,page_image,page_br
@@ -226,9 +244,28 @@ class CropTool(tk.Toplevel):
         # new_photoimage = ImageTk.PhotoImage(rotated)
         # new_photoimage.
         # pdf_canvas.create_image(2,2,image=new_photoimage,anchor='nw')
+        # self.update()
         self.drawCropBox()
 
+    def kill_root(self, event):
+        if event.widget == self and self.master.winfo_exists():
+            self.master.destroy()
+    def keyup(self,event):
+        # print event.keycode
+        if  event.keysym in self.history :
+            self.history.pop(self.history.index(event.keysym))
+
+            self.keyvar.set(str(self.history))
+
+    def keydown(self, event):
+        if not event.keysym in self.history :
+            self.history.append(event.keysym)
+            self.keyvar.set(str(self.history))
+
 class EntryWithLabel(tk.Frame):
+    '''
+    Custom widget that combines a tk.Label and a tk.Entry side by side
+    '''
     def __init__(self, parent, label, default="") -> None:
         tk.Frame.__init__(self, parent)
         self.label = tk.Label(self, text=label, anchor="w")
@@ -239,8 +276,14 @@ class EntryWithLabel(tk.Frame):
    
     def get(self) -> str:
         return self.entry.get()
+    
+    def delete(self,index) -> None:
+        self.entry.delete(index)
 
 class CheckButtonWithLabel(tk.Frame):
+    '''
+    Custom widget that combines a tk.Label and a tk.Checkbutton side by side
+    '''
     def __init__(self, parent, label, var) -> None:
         tk.Frame.__init__(self, parent)
         self.label = tk.Label(self, text=label, anchor="w")
@@ -250,7 +293,7 @@ class CheckButtonWithLabel(tk.Frame):
 
 if __name__ == "__main__":
     root = tk.Tk()
+    root.grab_set()
     root.withdraw()
-    CropTool(root)
-    root.destroy()    
+    CropTool(root)    
 # show preview
