@@ -13,6 +13,10 @@ SHIFT_HELD1 = 262145
 SHIFT_HELD2 = 262185
 IMAGE_PATH = "temp.png"
 
+def savePageImage(page: fitz.Page, filepath:str)-> None:
+    pixmap= page.get_pixmap(dpi=300)
+    pixmap.save(filepath)
+
 class CropTool(tk.Toplevel):
     def __init__(self,parent,filepath=None) -> None:
         super().__init__(parent)
@@ -147,9 +151,6 @@ class CropTool(tk.Toplevel):
         # print(my_image)
         return my_image
 
-    def savePageImage(self, page: fitz.Page, filepath:str)-> None:
-        pixmap= page.get_pixmap(dpi=300)
-        pixmap.save(filepath)
     # draw current cropbox onto pdf_canvas, replacing previous
     def drawCropBox(self) -> None:
         if (self.CROPBOX_ID):
