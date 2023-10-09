@@ -5,7 +5,7 @@ import pdf_reader as reader
 import crop_tool as crop
 import pdf_grouper as grouper
 import fitz
-# import tkinter as tk
+import tkinter as tk
 from matplotlib import pyplot as plt
 import numpy as np
 import cv2 as cv
@@ -16,15 +16,7 @@ import pytesseract
 MAX_AVERAGE_DISTANCE = 100
 FUZZY_THRESHOLD = 0.02
 # MIN_FOUND_VAL = 0.47
-# root = tk.Tk()
-# root.title("Split pdf")
-# root.withdraw()
-# root.geometry("1000x1000")
-# main_frame = tk.Frame(master=root, background = 'grey')
-# pdf_canvas = tk.Canvas(main_frame, background = 'light blue',width = 400, height = 400)
-# pdf_canvas.grid(row = 0, column = 0, sticky = 'nwes')
-# button_frame = tk.Frame(main_frame,  background = 'yellow', width = 400, height = 100)
-# button_frame.grid(row = 1, column= 0, sticky = 'nwes')
+
 def printDict(dict):
     for k,v in dict.items():
         print(k, end = ':\n')
@@ -214,9 +206,60 @@ def getPartFromImage(img) -> str:
             return part
     return grouper.ERROR_PART
 
+class SplitGUI(tk.Toplevel):
+    def __init__(self, parent, doc:fitz.Document):
+        tk.Toplevel.__init__(self, parent)
+        self.title = 'Split PDF'
+        self.doc = doc
+        br = doc[0].bound().br
+        self.geometry('{0}x{1}'.format(int(br.x)*2+50, int(br.y)))
+        self.page_label1 = tk.StringVar(self)
+        self.page_label2 = tk.StringVar(self)
+        self.main_frame = tk.Frame(self, bg='yellow')
+        self.page_canvas1 = crop.PDFCanvas(self.main_frame, doc[0], self.page_label1)
+        self.page_canvas2 = crop.PDFCanvas(self.main_frame, doc[0], self.page_label2)
+        self.pagenum = 0
+        self.set_page_num(0)
+        self.page_canvas1.grid(row=0,column=0)
+        self.page_canvas2.grid(row=0,column=1)
+        self.bind("<Destroy>", self.kill_root)
+        self.bind('<KeyPress>', self.key_input)
+        self.main_frame.pack()
+        self.mainloop()
+
+    def key_input(self, event):
+        print(event.keysym)
+        key = event.keysym
+        if key == 'a':
+            if self.pagenum == 0:
+                return
+            self.pagenum = self.pagenum - 1
+        elif key == 'd':
+            if self.pagenum == self.doc.page_count - 1:
+                return
+            self.pagenum = self.pagenum + 1
+        print(self.pagenum)
+        self.set_page_num(self.pagenum)
+
+    def set_page_num(self, num:int):
+        self.page_label1.set(str(num + 1))
+        self.page_label2.set(str(num + 2))
+        if num < 0:
+            self.page_canvas1.clear()
+            self.page_canvas2.clear()
+            return
+        if num < self.doc.page_count:
+            self.page_canvas1.updatePage(self.doc[num])
+        if num < self.doc.page_count - 1:
+            self.page_canvas2.updatePage(self.doc[num + 1])
+
+    def kill_root(self, event):
+        if event.widget == self and self.master.winfo_exists():
+            self.master.destroy()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(sys.argv[0])
-    parser.add_argument('filename',type=str, nargs = '?',
+    parser.add_argument('filename',type=str,
                 help = 'The file that will be split')
     parser.add_argument('-p','-page_names', dest = 'output_names_filepath',type=str, nargs = '?',
                 help = 'File containing the names for each page on their own line',
@@ -238,6 +281,9 @@ if __name__ == "__main__":
     parser.add_argument('-r', dest = 'rotate', 
                 help = 'Rotate the input documents 90 degrees',
                 type = int)
+    parser.add_argument('-g', dest = 'gui', 
+                help = 'Rotate the input documents 90 degrees',
+                action = 'store_true')
     args = parser.parse_args()
     print(args.filename)
     if args.last_page_file:
@@ -246,7 +292,9 @@ if __name__ == "__main__":
     else:
         last_pages = None
     args.pages_override = last_pages
-    # print(args.last_pages)
-    # print(grouper.matchPart('eb alto saxophone/horn in eb ',pretty = True))
-    # print(vars(args))
-    splitPDFs(**vars(args))
+    if args.gui:
+        root = tk.Tk()
+        root.withdraw()
+        SplitGUI(root,fitz.open(args.filename))
+    else:
+        splitPDFs(**vars(args))
