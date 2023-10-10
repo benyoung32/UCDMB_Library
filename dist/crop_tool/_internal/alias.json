@@ -1,0 +1,119 @@
+{
+    "flute": [
+        "flute",
+        "flutes",
+        "fl",
+        "flute/piccolo",
+        "fl/picc"
+    ],
+    "piccolo": [
+        "piccolo",
+        "picc",
+        "piccs"
+    ],
+    "clarinet": [
+        "clarinet",
+        "net"
+    ],
+    "alto saxophone": [
+        "alto",
+        "alto sax",
+        "alto saxophone"
+    ],
+    "tenor saxophone": [
+        "tenorsax",
+        "tenor sax",
+        "tenor saxophone",
+        "tenor"
+    ],
+    "baritone saxophone": [
+        "baritone saxophone",
+        "barisax",
+        "baritone sax",
+        "bari sax",
+        "bari",
+        "bari saxophone"
+    ],
+    "trumpet": [
+        "trumpet",
+        "trumpets",
+        "tpt",
+        "tpts"
+    ],
+    "mellophone": [
+        "mellophone",
+        "french horn",
+        "mellophone bugle",
+        "mello"
+    ],
+    "trombone": [
+        "trombone",
+        "tb",
+        "bone"
+    ],
+    "baritone bc": [
+        "baritone",
+        "baritonebc",
+        "baritone horn",
+        "euphonium",
+        "bar",
+        "baritone bc",
+        "marching baritone"
+    ],
+    "baritone tc": [
+        "baritone tc",
+        "baritonetc"
+    ],
+    "sousaphone": [
+        "sousaphone",
+        "sousie",
+        "tuba",
+        "sousies"
+    ],
+    "glockenspiel": [
+        "glockenspiel",
+        "glock",
+        "glocks"
+    ],
+    "snare drum": [
+        "snare",
+        "snare drum",
+        "snares"
+    ],
+    "tenor drum": [
+        "quads",
+        "quad",
+        "quad drums",
+        "tenor drum",
+        "tenor drums",
+        "tenors"
+    ],
+    "bass drum": [
+        "basses",
+        "bass drum",
+        "bass drums",
+        "bass"
+    ],
+    "cymbal": [
+        "cymbal",
+        "cymbals",
+        "cym"
+    ],
+    "electric bass": [
+        "electric bass"
+    ],
+    "xylophone": [
+        "xylophone"
+    ],
+    "aux perc": [
+        "auxillary",
+        "aux perc",
+        "auxillary percussion",
+        "aux percussion"
+    ],
+    "score": [
+        "score",
+        "all",
+        "full"
+    ]
+}
