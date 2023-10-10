@@ -1,13 +1,12 @@
-from ast import Str
 from copy import copy
 import os
 import tkinter as tk
 from tkinter import font
 import tkinter.filedialog
 import fitz
-from numpy import delete, full, var
 import pdf_reader as reader
 from PIL import Image,ImageTk
+MYFONT = ('Arial',16)
 PADDING = 10
 RATIO = 8.5/11
 SCALE = 1
@@ -19,16 +18,12 @@ def savePageImage(page: fitz.Page, filepath:str)-> None:
     pixmap= page.get_pixmap(dpi=300,colorspace='GRAY')
     pixmap.save(filepath)
 
-def getPageScaledImage(parent, page: fitz.Page) -> tk.PhotoImage:
-    # global page_image
-    width, height = page.bound().br
-    # print(width, height)
-    # savePageImage(page, IMAGE_PATH)
-    # page_image = Image.open(IMAGE_PATH)
-    # page_image.load()
-    pix = page.get_pixmap(dpi=300,colorspace='GRAY')
+def getPageScaledImage(parent, page: fitz.Page, dpi = 300, resize = True) -> tk.PhotoImage:
+    pix = page.get_pixmap(dpi=dpi,colorspace='GRAY')
     parent.page_image = Image.frombytes('L', [pix.width, pix.height], pix.samples)
-    parent.page_image = parent.page_image.resize(size=(int(width), int(height)))
+    if resize:
+        width, height = page.bound().br
+        parent.page_image = parent.page_image.resize(size=(int(width), int(height)))
     my_image = img = ImageTk.PhotoImage(parent.page_image,master=parent)
     # print(my_image)
     return my_image
@@ -272,8 +267,8 @@ class EntryWithLabel(tk.Frame):
         self.label = tk.Label(self, text=label, anchor="w")
         self.entry = tk.Entry(self)
         self.entry.insert(0, default)
-        self.label.pack(side="left", fill="x")
-        self.entry.pack(side="right", fill="x", padx=4)
+        self.label.pack(side="left", fill="both")
+        self.entry.pack(side="right", fill="both", padx=4)
    
     def get(self) -> str:
         return self.entry.get()
@@ -289,8 +284,8 @@ class CheckButtonWithLabel(tk.Frame):
         tk.Frame.__init__(self, parent)
         self.label = tk.Label(self, text=label, anchor="w")
         self.checkbutton = tk.Checkbutton(self,variable=var)
-        self.label.pack(side="left", fill="x")
-        self.checkbutton.pack(side="right", fill="x", padx=4)
+        self.label.pack(side="left", fill="both")
+        self.checkbutton.pack(side="right", fill="both", padx=4)
 
 class PDFWindow(tk.Toplevel):
     def __init__(self,parent:tk.Widget,doc:fitz.Document,title:str) -> None:
@@ -303,9 +298,11 @@ class PDFWindow(tk.Toplevel):
         self.image_canvas.pack()
 
 class PDFCanvas(tk.Frame):
-    def __init__(self, parent:tk.Widget,page:fitz.Page,label_var:tk.StringVar = None) -> None:
+    def __init__(self, parent:tk.Widget,doc:fitz.Document,label_var:tk.StringVar = None) -> None:
         tk.Frame.__init__(self, parent)
-        self.page = page
+        self.doc = doc
+        self.page_images = [None] * doc.page_count
+        page = doc[0]
         br = page.bound().br
         self.configure(relief='groove',borderwidth=4,width=int(br.x),
                        height=int(br.y),padx=5,pady=5,bg='snow2')
@@ -313,23 +310,28 @@ class PDFCanvas(tk.Frame):
         if label_var != '':
             self.label_var = label_var
             self.label = tk.Label(self,textvariable=self.label_var,
-                                  font=('Arial',16))
+                                  font=MYFONT)
             self.label.grid(row=0,column=0,pady=5)
         else:
             self.label = None
         self.image_canvas = tk.Canvas(self,bg='white',width=br.x, height=br.y)
         self.image_canvas.grid(row=1,column=0)
-        self.updatePage(page)
+        self.updatePage(0)
 
-    def updatePage(self, page:fitz.Page) -> None:
-        self.updateImage(getPageScaledImage(self,page))
-        # if label:
-        #     self.label_var.set(label)
-    
-    def updateImage(self, img:ImageTk.PhotoImage):
+    def updatePage(self, page_number:int) -> None:
+        if not self.page_images[page_number]:
+            self.page_images[page_number] = getPageScaledImage(self, self.doc[page_number],dpi=100,resize=True)
+        img = self.page_images[page_number]
+        self.updateImage(img)
+
+    def updateImage(self, img:ImageTk.PhotoImage) -> None:
         self.img = img
         self.clear()
         self.image_id = self.image_canvas.create_image(0,0,image=self.img,anchor='nw')
+
+    def preloadImages(self) -> None:
+        for i, page in enumerate(self.doc):
+            self.page_images[i] = getPageScaledImage(self, page,dpi=100,resize=True)
 
     def clear(self) -> None:
         if self.image_id != -1:

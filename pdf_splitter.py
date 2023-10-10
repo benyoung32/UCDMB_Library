@@ -1,6 +1,8 @@
 import argparse
+from cProfile import label
 import sys
 import os
+from turtle import width
 import pdf_reader as reader
 import crop_tool as crop
 import pdf_grouper as grouper
@@ -32,11 +34,8 @@ def main(filename:str):
 def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = False, 
               pages_override: list[bool] = None, rotate = None,from_part:bool = False,
               no_save:bool = False, **kwargs):
-    # open document
     filenames = reader.getSubFiles(filename)
     docs = reader.openDocuments(filenames)
-    # reader.saveDocument(list(docs.values())[0],'./test.pdf','')
-    # print(filenames)
     fmt = fitz.paper_rect('letter')
     if rotate:
         print('rotating')
@@ -98,37 +97,44 @@ def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = Fals
         i = i + 1
         if no_save:
             continue # return only if saving is not needed
-        new_doc = fitz.Document(rect=fmt)
-        print(songs)
-        directory = os.path.dirname(filepath)
-        base = os.path.basename(filepath).strip('.pdf')
+        split_pdf(filepath,last_pages,songs)
+
+def split_pdf(filepath:str,last_pages:list[bool], 
+              page_titles:list[str],separate_folders:bool = False) -> None:
+    doc = fitz.open(filepath)
+    fmt = fitz.paper_rect('letter')
+    new_doc = fitz.Document(rect=fmt)
+    # print(page_titles)
+    directory = os.path.dirname(filepath)
+    base = os.path.basename(filepath).strip('.pdf')
+    if not separate_folders:
         new_folder = directory + '\\' + base
         try:
             os.mkdir(new_folder)
         except:
             pass
-        j = 0
-        for k in range(len(last_pages)):
-            # end of song
-            new_doc.insert_pdf(doc,from_page=k, to_page=k)
-            if last_pages[k] == True:
-                if j < len(songs):
-                    extra = songs[j]
-                else:
-                    extra = str(j) + ' '
-                # new_folder = directory + '\\' + extra
-                # try:
-                #     os.mkdir(new_folder)
-                # except:
-                #     pass
-                new_doc[0].add_freetext_annot(new_doc[0].bound() - (-30,-30,100,100),str(k+1),text_color=(0,0,1),fontsize=22)
+    song_counter = 0 # counter for where you are in page_titles array
+    for k in range(len(last_pages)):
+        new_doc.insert_pdf(doc,from_page=k, to_page=k)
+        if last_pages[k] == True:
+            if song_counter < len(page_titles):
+                extra = page_titles[song_counter]
+            else:
+                extra = str(song_counter) + ' '
+            # new_doc[0].add_freetext_annot(new_doc[0].bound() - (-30,-30,100,100),str(k+1),text_color=(0,0,1),fontsize=22)
+            if separate_folders:
+                new_folder = directory + '\\' + extra
+                try:
+                    os.mkdir(new_folder)
+                except:
+                    pass
                 reader.saveDocument(new_doc, new_folder + '\\' + extra + ' - ' + base + '.pdf', '')
-                new_doc = fitz.open()
-                # print(last_pages[k], ', ' + str(k))
-                # reader.saveDocument(new_doc, new_folder + '\\' + base + ' - ' + extra + '.pdf', '') # save and close old doc
-                j = j + 1
+            reader.saveDocument(new_doc, new_folder + '\\' + base + ' - ' + extra + '.pdf', '') # save and close old doc
+            new_doc = fitz.open()
+            # print(last_pages[k], ', ' + str(k))
+            song_counter = song_counter + 1
 
-def dist(p1, p2):
+def dist(p1, p2) -> float:
     (x1, y1), (x2, y2) = p1, p2
     return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
@@ -207,28 +213,68 @@ def getPartFromImage(img) -> str:
     return grouper.ERROR_PART
 
 class SplitGUI(tk.Toplevel):
-    def __init__(self, parent, doc:fitz.Document):
+    def __init__(self, parent, doc:fitz.Document, output_names:list[str]) -> None:
+        # set up window
         tk.Toplevel.__init__(self, parent)
-        self.title = 'Split PDF'
+        self.title('Split PDF')
         self.doc = doc
         br = doc[0].bound().br
-        self.geometry('{0}x{1}'.format(int(br.x)*2+50, int(br.y)))
+        self.geometry('{0}x{1}'.format(int(br.x)*2+50, int(br.y)+200))
+        
+        # set up internal arrays
+        self.last_pages = [True] * doc.page_count
+        print(output_names)
+        if output_names:
+            self.output_names = output_names
+        else:
+            self.output_names = [''] * doc.page_count
+        print(self.output_names)
+        # holds all subframes
+        self.main_frame = tk.Frame(self, bg='yellow')
+        # init buttons
+        # holds buttons on the bottom
+        button_frame = tk.Frame(self.main_frame, bg='blue',height=100,width = int(br.x)*1.5)
+        self.separate_var = tk.BooleanVar(button_frame)
+        done_button = tk.Button(button_frame, text='Split PDF', command=self.done,font=crop.MYFONT)
+        separate_button = crop.CheckButtonWithLabel(button_frame,'Put into seperate folders?',self.separate_var)
+        separate_button.label.configure(font=crop.MYFONT)
+        self.output_entry = crop.EntryWithLabel(button_frame, 'Output File Name')
+        self.output_entry.label.configure(font=crop.MYFONT)
+        self.output_entry.entry.configure(font=crop.MYFONT)
+        done_button.grid(row=0,column=0,padx=40)
+        separate_button.grid(row=0,column=1,columnspan=2,padx=40)
+        self.output_entry.grid(row=0,column=3,columnspan=2,padx=40)
+        # init page canvases, which display the pdf pages 
+        # holds page canvases in the center
+        canvas_frame= tk.Frame(self.main_frame,bg='orange')
         self.page_label1 = tk.StringVar(self)
         self.page_label2 = tk.StringVar(self)
-        self.main_frame = tk.Frame(self, bg='yellow')
-        self.page_canvas1 = crop.PDFCanvas(self.main_frame, doc[0], self.page_label1)
-        self.page_canvas2 = crop.PDFCanvas(self.main_frame, doc[0], self.page_label2)
+        self.page_canvas1 = crop.PDFCanvas(canvas_frame, doc, self.page_label1)
+        # page_canvas2 displays 1 page after page_canvas1, such that there are two adjacent pages displayed at once
+        self.page_canvas2 = crop.PDFCanvas(canvas_frame, doc, self.page_label2)
         self.pagenum = 0
-        self.set_page_num(0)
+        # self.after(1,self.setupCanvases) # only load images after opening
+        # set up element grids
         self.page_canvas1.grid(row=0,column=0)
-        self.page_canvas2.grid(row=0,column=1)
-        self.bind("<Destroy>", self.kill_root)
-        self.bind('<KeyPress>', self.key_input)
-        self.main_frame.pack()
-        self.mainloop()
+        self.page_canvas2.grid(row=0,column=1,)
+        canvas_frame.grid(row=0,column=0,padx=0,pady=20)
+        button_frame.grid(row=1,column=0,padx=10,pady=10,sticky='nwes')
 
-    def key_input(self, event):
-        print(event.keysym)
+        self.bind("<Destroy>", self.kill_root)
+        self.main_frame.bind('<Button-1>', lambda e : self.focus_set())
+        self.bind('<KeyPress>', self.key_input)
+        self.main_frame.pack(fill='y',expand=True)
+        self.mainloop()
+    
+    def setupCanvases(self) -> None:
+        self.page_canvas1.preloadImages()
+        self.page_canvas2.page_images = self.page_canvas1.page_images
+        self.set_page_num(0)
+
+    def key_input(self, event) -> None:
+        if self.focus_get() != self:
+            # print('not in focus')
+            return
         key = event.keysym
         if key == 'a':
             if self.pagenum == 0:
@@ -236,24 +282,46 @@ class SplitGUI(tk.Toplevel):
             self.pagenum = self.pagenum - 1
         elif key == 'd':
             if self.pagenum == self.doc.page_count - 1:
+                self.page_canvas2.clear()
                 return
             self.pagenum = self.pagenum + 1
-        print(self.pagenum)
+        elif key == 's':
+            self.last_pages[self.pagenum] = not self.last_pages[self.pagenum]
+            if self.pagenum != self.doc.page_count - 1:
+                self.pagenum = self.pagenum + 1
+
+        # print(self.pagenum)
         self.set_page_num(self.pagenum)
 
-    def set_page_num(self, num:int):
+    def done():
+        pass
+
+    def set_page_num(self, num:int) -> None:
+        pc1,pc2 = self.page_canvas1, self.page_canvas2
         self.page_label1.set(str(num + 1))
         self.page_label2.set(str(num + 2))
+        if self.last_pages[num] == False:
+            self.output_entry.entry.config(state='disabled')
+        else:
+            self.output_entry.entry.config(state='normal')
         if num < 0:
-            self.page_canvas1.clear()
-            self.page_canvas2.clear()
+            pc1.clear()
+            pc2.clear()
             return
         if num < self.doc.page_count:
-            self.page_canvas1.updatePage(self.doc[num])
+            if self.last_pages[num]:
+                pc1.configure(bg='green',width=pc1.winfo_width(),height=pc1.winfo_height())
+            else:
+                pc1.configure(bg='red',width=pc1.winfo_width(),height=pc1.winfo_height())
+            self.page_canvas1.updatePage(num)
         if num < self.doc.page_count - 1:
-            self.page_canvas2.updatePage(self.doc[num + 1])
+            if self.last_pages[num+1]:
+                pc2.configure(bg='green',width=pc2.winfo_width(),height=pc2.winfo_height())
+            else:
+                pc2.configure(bg='red',width=pc2.winfo_width(),height=pc2.winfo_height())
+            self.page_canvas2.updatePage(num + 1)
 
-    def kill_root(self, event):
+    def kill_root(self, event) -> None:
         if event.widget == self and self.master.winfo_exists():
             self.master.destroy()
 
@@ -292,9 +360,13 @@ if __name__ == "__main__":
     else:
         last_pages = None
     args.pages_override = last_pages
+    if args.output_names_filepath:
+        output_names = grouper.readFile(args.output_names_filepath)
+    else:
+        output_names = None
     if args.gui:
         root = tk.Tk()
         root.withdraw()
-        SplitGUI(root,fitz.open(args.filename))
+        SplitGUI(root,fitz.open(args.filename),output_names)
     else:
         splitPDFs(**vars(args))
