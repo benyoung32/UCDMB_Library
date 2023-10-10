@@ -5,7 +5,7 @@ import pdf_reader as reader
 import crop_tool as crop
 import pdf_grouper as grouper
 import fitz
-# import tkinter as tk
+import tkinter as tk
 from matplotlib import pyplot as plt
 import numpy as np
 import cv2 as cv
@@ -16,15 +16,7 @@ import pytesseract
 MAX_AVERAGE_DISTANCE = 100
 FUZZY_THRESHOLD = 0.02
 # MIN_FOUND_VAL = 0.47
-# root = tk.Tk()
-# root.title("Split pdf")
-# root.withdraw()
-# root.geometry("1000x1000")
-# main_frame = tk.Frame(master=root, background = 'grey')
-# pdf_canvas = tk.Canvas(main_frame, background = 'light blue',width = 400, height = 400)
-# pdf_canvas.grid(row = 0, column = 0, sticky = 'nwes')
-# button_frame = tk.Frame(main_frame,  background = 'yellow', width = 400, height = 100)
-# button_frame.grid(row = 1, column= 0, sticky = 'nwes')
+
 def printDict(dict):
     for k,v in dict.items():
         print(k, end = ':\n')
@@ -38,13 +30,13 @@ def main(filename:str):
     pass
 
 def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = False, 
-              pages_override = None, rotate = None,from_part:bool = False,
+              pages_override: list[bool] = None, rotate = None,from_part:bool = False,
               no_save:bool = False, **kwargs):
     # open document
     filenames = reader.getSubFiles(filename)
     docs = reader.openDocuments(filenames)
     # reader.saveDocument(list(docs.values())[0],'./test.pdf','')
-    print(filenames)
+    # print(filenames)
     fmt = fitz.paper_rect('letter')
     if rotate:
         print('rotating')
@@ -53,7 +45,7 @@ def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = Fals
                 page.set_rotation(rotate)
     if simple:
         for filepath, doc in docs.items():
-            i = 1
+            k = 1
             directory = os.path.dirname(filepath)
             base = os.path.basename(filepath).strip('.pdf')
             # new_folder = directory + '\\' 
@@ -66,67 +58,75 @@ def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = Fals
                 new_doc.insert_pdf(doc, from_page=src_page.number,to_page=src_page.number)
                 # page = new_doc.new_page()
                 # print(filepath)
-                new_doc.save(directory + '\\' + base + '\\' + base + str(i) + '.pdf',
+                new_doc.save(directory + '\\' + base + '\\' + base + str(k) + '.pdf',
                             deflate = True, 
                             deflate_images = True, garbage = 4, clean = True)
                 new_doc.close()
-                i = i + 1
+                k = k + 1
         return
     template = cv.imread('.\\template.png.', cv.IMREAD_GRAYSCALE)
     method = eval('cv.TM_CCOEFF_NORMED')
     for filepath, doc in docs.items():
         i = 1
-        if from_part: part_file = open('parts.txt', 'w+')
-        if not pages_override:
-            last_pages = []
-            for page in doc:
+        if from_part: part_file = open('parts' + str(i) + '.txt', 'w+')
+        last_pages = [None] * doc.page_count
+        if pages_override:
+            for index,b in enumerate(pages_override):
+                if index >= len(last_pages):
+                    break
+                last_pages[index] = b
+        for index, page in enumerate(doc):
+            if last_pages[index] == None:    
                 crop.savePageImage(page, 'temp2.png')
                 img = cv.imread('temp2.png', cv.IMREAD_GRAYSCALE)
-                last_pages.append(isLastPage(img, template, method))
+                last_pages[index] = isLastPage(img, template, method)
                 if from_part: part_file.write(getPartFromImage(img) + '\n')
-                # res = cv.matchTemplate(img, template, eval(method))
-                # min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
-                # max_vals.append(max_val)
-                # showMaxMatch(res, img)
-                print('page ', str(i), '...')   
-                i = i + 1
-        else:
-            last_pages = pages_override
+                # print(last_pages)
+                print('page ', str(index), '...')   
         if from_part: part_file.close()
         # save last_pages to file
-        page_file = open('pages.txt', 'w+')
+        page_file = open(os.path.basename(filepath).strip('.pdf') + '.txt', 'w+')
         for b in last_pages:
             page_file.write(str(b) + '\n')
         page_file.close()
-        j = 1
         if from_part:
             songs = grouper.readFile('parts.txt')
         elif output_names_filepath:
             songs = grouper.readFile(output_names_filepath)
         else:
             songs = []
-        new_doc = fitz.Document(rect=fmt)
+        i = i + 1
         if no_save:
-            return # return only if saving is not needed
-        for i in range(len(last_pages)):
+            continue # return only if saving is not needed
+        new_doc = fitz.Document(rect=fmt)
+        print(songs)
+        directory = os.path.dirname(filepath)
+        base = os.path.basename(filepath).strip('.pdf')
+        new_folder = directory + '\\' + base
+        try:
+            os.mkdir(new_folder)
+        except:
+            pass
+        j = 0
+        for k in range(len(last_pages)):
             # end of song
-            new_doc.insert_pdf(doc,from_page=i, to_page=i)
-            if last_pages[i] == True:
-                extra = str(j) + ' '
+            new_doc.insert_pdf(doc,from_page=k, to_page=k)
+            if last_pages[k] == True:
+                if j < len(songs):
+                    extra = songs[j]
+                else:
+                    extra = str(j) + ' '
+                # new_folder = directory + '\\' + extra
+                # try:
+                #     os.mkdir(new_folder)
+                # except:
+                #     pass
+                new_doc[0].add_freetext_annot(new_doc[0].bound() - (-30,-30,100,100),str(k+1),text_color=(0,0,1),fontsize=22)
+                reader.saveDocument(new_doc, new_folder + '\\' + extra + ' - ' + base + '.pdf', '')
+                new_doc = fitz.open()
+                # print(last_pages[k], ', ' + str(k))
+                # reader.saveDocument(new_doc, new_folder + '\\' + base + ' - ' + extra + '.pdf', '') # save and close old doc
                 j = j + 1
-                if i < len(songs):
-                    extra = songs[i]
-                # new_path = os.path.dirname(filepath) + "\\" + song  + os.path.basename(filepath)
-                directory = os.path.dirname(filepath)
-                base = os.path.basename(filepath).strip('.pdf')
-                new_folder = directory + '\\' + base
-                try:
-                    os.mkdir(new_folder)
-                except:
-                    pass
-                # reader.saveDocument(new_doc, new_folder + '\\' + base + '.pdf', song) # save and close old doc
-                reader.saveDocument(new_doc, new_folder + '\\' + base + ' - ' + extra + '.pdf', '') # save and close old doc
-                new_doc = fitz.open() # start new document
 
 def dist(p1, p2):
     (x1, y1), (x2, y2) = p1, p2
@@ -206,11 +206,62 @@ def getPartFromImage(img) -> str:
             return part
     return grouper.ERROR_PART
 
+class SplitGUI(tk.Toplevel):
+    def __init__(self, parent, doc:fitz.Document):
+        tk.Toplevel.__init__(self, parent)
+        self.title = 'Split PDF'
+        self.doc = doc
+        br = doc[0].bound().br
+        self.geometry('{0}x{1}'.format(int(br.x)*2+50, int(br.y)))
+        self.page_label1 = tk.StringVar(self)
+        self.page_label2 = tk.StringVar(self)
+        self.main_frame = tk.Frame(self, bg='yellow')
+        self.page_canvas1 = crop.PDFCanvas(self.main_frame, doc[0], self.page_label1)
+        self.page_canvas2 = crop.PDFCanvas(self.main_frame, doc[0], self.page_label2)
+        self.pagenum = 0
+        self.set_page_num(0)
+        self.page_canvas1.grid(row=0,column=0)
+        self.page_canvas2.grid(row=0,column=1)
+        self.bind("<Destroy>", self.kill_root)
+        self.bind('<KeyPress>', self.key_input)
+        self.main_frame.pack()
+        self.mainloop()
+
+    def key_input(self, event):
+        print(event.keysym)
+        key = event.keysym
+        if key == 'a':
+            if self.pagenum == 0:
+                return
+            self.pagenum = self.pagenum - 1
+        elif key == 'd':
+            if self.pagenum == self.doc.page_count - 1:
+                return
+            self.pagenum = self.pagenum + 1
+        print(self.pagenum)
+        self.set_page_num(self.pagenum)
+
+    def set_page_num(self, num:int):
+        self.page_label1.set(str(num + 1))
+        self.page_label2.set(str(num + 2))
+        if num < 0:
+            self.page_canvas1.clear()
+            self.page_canvas2.clear()
+            return
+        if num < self.doc.page_count:
+            self.page_canvas1.updatePage(self.doc[num])
+        if num < self.doc.page_count - 1:
+            self.page_canvas2.updatePage(self.doc[num + 1])
+
+    def kill_root(self, event):
+        if event.widget == self and self.master.winfo_exists():
+            self.master.destroy()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(sys.argv[0])
-    parser.add_argument('filename',type=str, nargs = '?',
+    parser.add_argument('filename',type=str,
                 help = 'The file that will be split')
-    parser.add_argument('-p','-page_names', dest = 'page_names',type=str, nargs = '?',
+    parser.add_argument('-p','-page_names', dest = 'output_names_filepath',type=str, nargs = '?',
                 help = 'File containing the names for each page on their own line',
                 default=None)
     parser.add_argument('-o', dest = 'last_page_file', type=str, nargs = '?',
@@ -230,6 +281,9 @@ if __name__ == "__main__":
     parser.add_argument('-r', dest = 'rotate', 
                 help = 'Rotate the input documents 90 degrees',
                 type = int)
+    parser.add_argument('-g', dest = 'gui', 
+                help = 'Rotate the input documents 90 degrees',
+                action = 'store_true')
     args = parser.parse_args()
     print(args.filename)
     if args.last_page_file:
@@ -237,7 +291,10 @@ if __name__ == "__main__":
         last_pages = [reader.strtobool(s) for s in last_pages]
     else:
         last_pages = None
-    # print(args.last_pages)
-    # print(grouper.matchPart('eb alto saxophone/horn in eb ',pretty = True))
-    # print(vars(args))
-    splitPDFs(**vars(args))
+    args.pages_override = last_pages
+    if args.gui:
+        root = tk.Tk()
+        root.withdraw()
+        SplitGUI(root,fitz.open(args.filename))
+    else:
+        splitPDFs(**vars(args))

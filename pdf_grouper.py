@@ -132,7 +132,7 @@ def main(folderlist: list[str], parts: list[str], output:str, combine:bool = Fal
                         if j >= len(part_docs):
                             break
                         final_combined_doc.insert_pdf(part_docs[j])
-        final_combined_doc.save(output + '\\all_parts' + '.pdf')
+        reader.saveDocument(final_combined_doc,output + '\\all_parts' + '.pdf',None)
 
 def findMatches(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
     '''

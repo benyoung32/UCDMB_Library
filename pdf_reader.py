@@ -128,8 +128,6 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
     '''
     doc = fitz.Document(rect=FORMAT)  # create new empty doc
     top_mg, left_mg, right_mg, bottom_mg = margins
-    # if right_align:
-    #     src = rightAlign(src)
     fmt = fitz.paper_rect('letter')
     for page in src:  # process each page
         page.set_rotation(0)  # ensure page is rotated correctly
@@ -141,24 +139,24 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
             croprect = fitz.Rect(left_mg, top_mg, r.x1 - right_mg, r.y1 / 2 - bottom_mg)
         else:
             croprect = fitz.Rect(r.x1 / 2 - top_mg, bottom_mg, r.x1 - right_mg, r.y1 - left_mg)
-        print(margins)
-        print(page.mediabox)
-        print(croprect)
-        page.add_rect_annot(croprect)
-        src.save('altered.pdf')
+        # print(margins)
+        # print(page.mediabox)
+        # print(croprect)
+        # page.add_rect_annot(croprect)
+        # src.save('altered.pdf')
         if two_in_one: # for duplicating ones that are already half size and two pages
             page.set_cropbox(croprect)
             src_pix = page.get_pixmap(dpi = 300)
             insertImage(new_page, src_pix, expand, rotate,right_align)
             if expand: 
                 page.set_cropbox(fitz.Rect(left_mg, (r.y1 / 2) - top_mg, r.x1 - right_mg, r.y1-bottom_mg))
-                src_pix2 = page.get_pixmap(dpi = 300)
+                src_pix2 = page.get_pixmap(dpi = 300,colorspace='GRAY')
                 new_page2 = doc.new_page()
                 insertImage(new_page2, src_pix2, expand,rotate,right_align)
         else:
             page.set_cropbox(fitz.Rect(croprect))
             print(page.cropbox_position)
-            src_pix = page.get_pixmap(dpi = 300)
+            src_pix = page.get_pixmap(dpi = 300,colorspace='GRAY')
             insertImage(new_page, src_pix, expand, rotate,right_align)
     return doc 
 
@@ -173,12 +171,12 @@ def insertImage(page, src_pix, expand = False,
             page.insert_image(fitz.Rect(0, 5, r.x1 * CW, r.y1 / 2 - 5),
                 pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
             page.insert_image(fitz.Rect(0, r.y1 / 2 + 5, r.x1 * CW, r.y1 - 5), 
-                pixmap= src_pix, rotate = rotate, keep_proportion = False)
+                pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
         else:
             page.insert_image(fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1 / 2),
-                pixmap= src_pix, rotate = rotate, keep_proportion = True)
+                pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
             page.insert_image(fitz.Rect(r.x1 * (1 - CW), r.y1 / 2, r.x1, r.y1), 
-                pixmap= src_pix, rotate = rotate, keep_proportion = True)
+                pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
 
 def rightAlign(doc: fitz.Document) -> fitz.Document:
     out_doc = fitz.Document(rect=FORMAT)

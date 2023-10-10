@@ -1,9 +1,11 @@
+from ast import Str
 from copy import copy
 import os
 import tkinter as tk
+from tkinter import font
 import tkinter.filedialog
 import fitz
-from numpy import full, var
+from numpy import delete, full, var
 import pdf_reader as reader
 from PIL import Image,ImageTk
 PADDING = 10
@@ -12,6 +14,24 @@ SCALE = 1
 SHIFT_HELD1 = 262145
 SHIFT_HELD2 = 262185
 IMAGE_PATH = "temp.png"
+
+def savePageImage(page: fitz.Page, filepath:str)-> None:
+    pixmap= page.get_pixmap(dpi=300,colorspace='GRAY')
+    pixmap.save(filepath)
+
+def getPageScaledImage(parent, page: fitz.Page) -> tk.PhotoImage:
+    # global page_image
+    width, height = page.bound().br
+    # print(width, height)
+    # savePageImage(page, IMAGE_PATH)
+    # page_image = Image.open(IMAGE_PATH)
+    # page_image.load()
+    pix = page.get_pixmap(dpi=300,colorspace='GRAY')
+    parent.page_image = Image.frombytes('L', [pix.width, pix.height], pix.samples)
+    parent.page_image = parent.page_image.resize(size=(int(width), int(height)))
+    my_image = img = ImageTk.PhotoImage(parent.page_image,master=parent)
+    # print(my_image)
+    return my_image
 
 class CropTool(tk.Toplevel):
     def __init__(self,parent,filepath=None) -> None:
@@ -26,7 +46,7 @@ class CropTool(tk.Toplevel):
         self.expand_var = tk.BooleanVar(self)
         self.twoinone_var = tk.BooleanVar(self)
         self.CROPBOX_ID = None
-        print(self.focus_get())
+        # print(self.focus_get())
         if not filepath:
             self.path = self.openFile()
         else:
@@ -73,7 +93,7 @@ class CropTool(tk.Toplevel):
         self.twoinone_box.grid(row=4,column=0,sticky = 'nwes',columnspan=2)
         self.rightalign_box.grid(row=5,column=0,sticky = 'nwes',columnspan=2)
         self.main_frame.pack(padx=PADDING,pady=PADDING,fill='none')
-        myimage = self.getPageScaledImage(page)
+        myimage = getPageScaledImage(self,page)
         self.pdf_canvas.create_image(2,2,image=myimage,anchor='nw')
         self.tl = fitz.Point(2,2)
         self.br = copy(self.page_br)
@@ -88,6 +108,7 @@ class CropTool(tk.Toplevel):
         # print(self.focus_get())
         self.bind("<Destroy>", self.kill_root)
         self.mainloop()
+
     def checkKeys(self):
         tl, br = self.tl, self.br
         key_string = self.keyvar.get()
@@ -135,21 +156,7 @@ class CropTool(tk.Toplevel):
         self.focus_get()
         return answer.name
     # get page sized tk.PhotoImage from a fitz.Page 
-    def getPageScaledImage(self, page: fitz.Page) -> tk.PhotoImage:
-        # global page_image
-        width, height = page.bound().br
-        # print(width, height)
-        self.savePageImage(page, IMAGE_PATH)
-        page_image = Image.open(IMAGE_PATH)
-        # page_image.load()
-        page_image = page_image.resize(size=(int(width), int(height)))
-        my_image = img = ImageTk.PhotoImage(page_image,master=self)
-        # print(my_image)
-        return my_image
 
-    def savePageImage(self, page: fitz.Page, filepath:str)-> None:
-        pixmap= page.get_pixmap(dpi=300)
-        pixmap.save(filepath)
     # draw current cropbox onto pdf_canvas, replacing previous
     def drawCropBox(self) -> None:
         if (self.CROPBOX_ID):
@@ -221,14 +228,7 @@ class CropTool(tk.Toplevel):
         #             deflate_images = True, garbage = 4, clean = True)
         new_br = newdoc[0].bound().br
         # create new window to show altered document
-        preview_window = tk.Toplevel(master=self)
-        preview_window.title('Crop preview')
-        preview_window.geometry('{0}x{1}'.format(int(new_br.x), int(new_br.y)))
-        preview_window.img = img = self.getPageScaledImage(newdoc[0])
-        preview_canvas = tk.Canvas(preview_window,bg='pink',width=new_br.x,height=new_br.y)
-        preview_canvas.create_image(2,2,image=img,anchor='nw')
-        preview_canvas.pack()
-    # rotate viewing frame to match with rotation value
+        preview_window = PDFWindow(self,newdoc,'Crop Preview')
     def updateRotation(self) -> None:
         # global main_frame, pdf_canvas, rotate_var,page_image,page_br
         # # rotate pdf_canvas width and height, repack gui elements
@@ -250,6 +250,7 @@ class CropTool(tk.Toplevel):
     def kill_root(self, event):
         if event.widget == self and self.master.winfo_exists():
             self.master.destroy()
+    
     def keyup(self,event):
         # print event.keycode
         if  event.keysym in self.history :
@@ -266,7 +267,7 @@ class EntryWithLabel(tk.Frame):
     '''
     Custom widget that combines a tk.Label and a tk.Entry side by side
     '''
-    def __init__(self, parent, label, default="") -> None:
+    def __init__(self, parent:tk.Widget, label:str, default:str="") -> None:
         tk.Frame.__init__(self, parent)
         self.label = tk.Label(self, text=label, anchor="w")
         self.entry = tk.Entry(self)
@@ -284,13 +285,58 @@ class CheckButtonWithLabel(tk.Frame):
     '''
     Custom widget that combines a tk.Label and a tk.Checkbutton side by side
     '''
-    def __init__(self, parent, label, var) -> None:
+    def __init__(self, parent:tk.Widget, label:str, var:tk.Variable) -> None:
         tk.Frame.__init__(self, parent)
         self.label = tk.Label(self, text=label, anchor="w")
         self.checkbutton = tk.Checkbutton(self,variable=var)
         self.label.pack(side="left", fill="x")
         self.checkbutton.pack(side="right", fill="x", padx=4)
 
+class PDFWindow(tk.Toplevel):
+    def __init__(self,parent:tk.Widget,doc:fitz.Document,title:str) -> None:
+        tk.Toplevel.__init__(self, parent)
+        br = doc[0].bound().br
+        self.image_id = -1
+        self.title(title)
+        self.geometry('{0}x{1}'.format(int(br.x), int(br.y)))
+        self.image_canvas = PDFCanvas(self,doc[0],'page 1')
+        self.image_canvas.pack()
+
+class PDFCanvas(tk.Frame):
+    def __init__(self, parent:tk.Widget,page:fitz.Page,label_var:tk.StringVar = None) -> None:
+        tk.Frame.__init__(self, parent)
+        self.page = page
+        br = page.bound().br
+        self.configure(relief='groove',borderwidth=4,width=int(br.x),
+                       height=int(br.y),padx=5,pady=5,bg='snow2')
+        self.image_id = -1
+        if label_var != '':
+            self.label_var = label_var
+            self.label = tk.Label(self,textvariable=self.label_var,
+                                  font=('Arial',16))
+            self.label.grid(row=0,column=0,pady=5)
+        else:
+            self.label = None
+        self.image_canvas = tk.Canvas(self,bg='white',width=br.x, height=br.y)
+        self.image_canvas.grid(row=1,column=0)
+        self.updatePage(page)
+
+    def updatePage(self, page:fitz.Page) -> None:
+        self.updateImage(getPageScaledImage(self,page))
+        # if label:
+        #     self.label_var.set(label)
+    
+    def updateImage(self, img:ImageTk.PhotoImage):
+        self.img = img
+        self.clear()
+        self.image_id = self.image_canvas.create_image(0,0,image=self.img,anchor='nw')
+
+    def clear(self) -> None:
+        if self.image_id != -1:
+            self.image_canvas.delete(self.image_id)
+            self.image_id = -1
+    
+        # self.geometry('{0}x{1}'.format(int(br.x), int(br.y)))
 if __name__ == "__main__":
     root = tk.Tk()
     root.grab_set()
