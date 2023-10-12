@@ -7,12 +7,13 @@ import json
 import os
 import argparse
 import sys
+
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-    print('running in a PyInstaller bundle')
+    # print('running in a PyInstaller bundle')
     ALIAS_FILE = ".\\_internal\\alias.json"
     SUBSTITUTION_FILE = '.\\_internal\\substitution.json'
 else:
-    print('running in a normal Python process')
+    # print('running in a normal Python process')
     ALIAS_FILE = "alias.json"
     SUBSTITUTION_FILE = 'substitution.json'
 

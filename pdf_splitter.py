@@ -1,20 +1,24 @@
 import argparse
-from cProfile import label
 import sys
 import os
-from turtle import width
 import pdf_reader as reader
 import crop_tool as crop
 import pdf_grouper as grouper
 import fitz
 import tkinter as tk
-from matplotlib import pyplot as plt
-import numpy as np
-import cv2 as cv
+# import cv2 as cv
 import math
 from itertools import combinations
-import pytesseract
 
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    # print('running in a PyInstaller bundle')
+    frozen = True
+else:
+    # print('running in a normal Python process')
+    frozen = False
+    from matplotlib import pyplot as plt
+    import numpy as np
+    import pytesseract
 MAX_AVERAGE_DISTANCE = 100
 FUZZY_THRESHOLD = 0.02
 # MIN_FOUND_VAL = 0.47
@@ -30,6 +34,12 @@ def printDict(dict):
 
 def main(filename:str):
     pass
+
+def save_list(l:list, outfilepath:str) -> None:
+    page_file = open(outfilepath, 'w+')
+    for b in l:
+        page_file.write(str(b) + '\n')
+    page_file.close()
 
 def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = False, 
               pages_override: list[bool] = None, rotate = None,from_part:bool = False,
@@ -63,8 +73,6 @@ def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = Fals
                 new_doc.close()
                 k = k + 1
         return
-    template = cv.imread('.\\template.png.', cv.IMREAD_GRAYSCALE)
-    method = eval('cv.TM_CCOEFF_NORMED')
     for filepath, doc in docs.items():
         i = 1
         if from_part: part_file = open('parts' + str(i) + '.txt', 'w+')
@@ -74,20 +82,18 @@ def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = Fals
                 if index >= len(last_pages):
                     break
                 last_pages[index] = b
-        for index, page in enumerate(doc):
-            if last_pages[index] == None:    
-                crop.savePageImage(page, 'temp2.png')
-                img = cv.imread('temp2.png', cv.IMREAD_GRAYSCALE)
-                last_pages[index] = isLastPage(img, template, method)
-                if from_part: part_file.write(getPartFromImage(img) + '\n')
-                # print(last_pages)
-                print('page ', str(index), '...')   
+        if not frozen:
+            template = cv.imread('.\\template.png.', cv.IMREAD_GRAYSCALE)
+            method = eval('cv.TM_CCOEFF_NORMED')
+            for index, page in enumerate(doc):
+                if last_pages[index] == None:    
+                    crop.savePageImage(page, 'temp2.png')
+                    img = cv.imread('temp2.png', cv.IMREAD_GRAYSCALE)
+                    last_pages[index] = isLastPage(img, template, method)
+                    if from_part: part_file.write(getPartFromImage(img) + '\n')
+                    print('page ', str(index), '...')   
         if from_part: part_file.close()
-        # save last_pages to file
-        page_file = open(os.path.basename(filepath).strip('.pdf') + '.txt', 'w+')
-        for b in last_pages:
-            page_file.write(str(b) + '\n')
-        page_file.close()
+        save_list(last_pages, os.path.basename(filepath).strip('.pdf') + '.txt')
         if from_part:
             songs = grouper.readFile('parts.txt')
         elif output_names_filepath:
@@ -129,7 +135,8 @@ def split_pdf(filepath:str,last_pages:list[bool],
                 except:
                     pass
                 reader.saveDocument(new_doc, new_folder + '\\' + extra + ' - ' + base + '.pdf', '')
-            reader.saveDocument(new_doc, new_folder + '\\' + base + ' - ' + extra + '.pdf', '') # save and close old doc
+            else: 
+                reader.saveDocument(new_doc, new_folder + '\\' + base + ' - ' + extra + '.pdf', '') # save and close old doc
             new_doc = fitz.open()
             # print(last_pages[k], ', ' + str(k))
             song_counter = song_counter + 1
@@ -138,7 +145,10 @@ def dist(p1, p2) -> float:
     (x1, y1), (x2, y2) = p1, p2
     return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
-def isLastPage(img ,template, method = cv.TM_CCOEFF_NORMED):
+def isLastPage(img ,template, method = cv.TM_CCOEFF_NORMED) -> bool:
+    if frozen:
+        print('|| ERROR || Running inside bundle, some features unavailable :(')
+        return True
     # first check only the bottom of the page 
     bottom_img = img[-len(img)//5:-1]
     res = cv.matchTemplate(bottom_img, template, method)
@@ -163,6 +173,9 @@ def isLastPage(img ,template, method = cv.TM_CCOEFF_NORMED):
     return avg_distance < MAX_AVERAGE_DISTANCE
     
 def showMaxMatch(res, img) -> None:
+    if frozen:
+        print('|| ERROR || Running inside bundle, some features unavailable :(')
+        return
     min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
     threshold = max_val - 0.02
     loc = np.where(res >= threshold)
@@ -213,22 +226,38 @@ def getPartFromImage(img) -> str:
     return grouper.ERROR_PART
 
 class SplitGUI(tk.Toplevel):
-    def __init__(self, parent, doc:fitz.Document, output_names:list[str]) -> None:
+    def __init__(self, parent, filepath:str, output_names:list[str]) -> None:
         # set up window
         tk.Toplevel.__init__(self, parent)
         self.title('Split PDF')
+        doc = fitz.open(filepath)
         self.doc = doc
+        self.basename = os.path.basename(filepath).strip('.pdf')
+        self.directory = os.path.dirname(filepath)
+        self.filepath = filepath
         br = doc[0].bound().br
         self.geometry('{0}x{1}'.format(int(br.x)*2+50, int(br.y)+200))
         
         # set up internal arrays
-        self.last_pages = [True] * doc.page_count
-        print(output_names)
+        try:
+            self.last_pages = grouper.readFile(self.directory + '//' + self.basename + ' pages.txt')
+            self.last_pages = [reader.strtobool(s) for s in self.last_pages]
+            print('opened file')
+        except:
+            self.last_pages = [True] * doc.page_count
+            print('no last pages found')
+        # print(output_names)
         if output_names:
             self.output_names = output_names
         else:
-            self.output_names = [''] * doc.page_count
-        print(self.output_names)
+            try:
+                self.output_names = grouper.readFile(self.directory + '//' + self.basename + ' outputnames.txt')
+                print('opened file')
+            except:
+                self.output_names = [self.basename + ' - '] * doc.page_count
+                print('no output files found')
+        self.output_index = 0
+
         # holds all subframes
         self.main_frame = tk.Frame(self, bg='yellow')
         # init buttons
@@ -240,7 +269,8 @@ class SplitGUI(tk.Toplevel):
         separate_button.label.configure(font=crop.MYFONT)
         self.output_entry = crop.EntryWithLabel(button_frame, 'Output File Name')
         self.output_entry.label.configure(font=crop.MYFONT)
-        self.output_entry.entry.configure(font=crop.MYFONT)
+        self.output_entry.entry.configure(font=crop.MYFONT,width=30)
+        self.output_entry.entry.insert(0,self.output_names[0])
         done_button.grid(row=0,column=0,padx=40)
         separate_button.grid(row=0,column=1,columnspan=2,padx=40)
         self.output_entry.grid(row=0,column=3,columnspan=2,padx=40)
@@ -253,7 +283,7 @@ class SplitGUI(tk.Toplevel):
         # page_canvas2 displays 1 page after page_canvas1, such that there are two adjacent pages displayed at once
         self.page_canvas2 = crop.PDFCanvas(canvas_frame, doc, self.page_label2)
         self.pagenum = 0
-        # self.after(1,self.setupCanvases) # only load images after opening
+        self.after(500,self.setupCanvases) # only load images after opening
         # set up element grids
         self.page_canvas1.grid(row=0,column=0)
         self.page_canvas2.grid(row=0,column=1,)
@@ -279,31 +309,42 @@ class SplitGUI(tk.Toplevel):
         if key == 'a':
             if self.pagenum == 0:
                 return
-            self.pagenum = self.pagenum - 1
+            newpage = self.pagenum - 1
         elif key == 'd':
             if self.pagenum == self.doc.page_count - 1:
                 self.page_canvas2.clear()
                 return
-            self.pagenum = self.pagenum + 1
+            newpage = self.pagenum + 1
         elif key == 's':
             self.last_pages[self.pagenum] = not self.last_pages[self.pagenum]
             if self.pagenum != self.doc.page_count - 1:
-                self.pagenum = self.pagenum + 1
+                newpage = self.pagenum + 1
 
         # print(self.pagenum)
-        self.set_page_num(self.pagenum)
+        self.set_page_num(newpage)
 
-    def done():
-        pass
+    def done(self) -> None:
+        save_list(self.last_pages,self.directory + '//' + self.basename + ' pages.txt')
+        save_list(self.output_names,self.directory + '//' + self.basename + ' output.txt')
+        split_pdf(self.filepath,self.last_pages,self.output_names,self.separate_var.get())
 
     def set_page_num(self, num:int) -> None:
-        pc1,pc2 = self.page_canvas1, self.page_canvas2
+        pc1,pc2,entry = self.page_canvas1, self.page_canvas2,self.output_entry.entry
         self.page_label1.set(str(num + 1))
         self.page_label2.set(str(num + 2))
-        if self.last_pages[num] == False:
-            self.output_entry.entry.config(state='disabled')
+        new_index = self.getOutputIndexAtPage(num)
+        if new_index == self.output_index:
+            print('same')
         else:
-            self.output_entry.entry.config(state='normal')
+            self.output_names[self.output_index] = entry.get() # save inputted value
+            self.output_index = new_index
+        if self.last_pages[num] == False:
+            entry.config(state='disabled',width=30)
+        else:
+            entry.config(state='normal',width=30)
+        entry.delete(0, tk.END)
+        entry.insert(0, self.output_names[new_index])
+        self.pagenum = num
         if num < 0:
             pc1.clear()
             pc2.clear()
@@ -320,6 +361,13 @@ class SplitGUI(tk.Toplevel):
             else:
                 pc2.configure(bg='red',width=pc2.winfo_width(),height=pc2.winfo_height())
             self.page_canvas2.updatePage(num + 1)
+
+    def getOutputIndexAtPage(self,pagenum:int): 
+        counter = 0
+        for i in range(pagenum):
+            if self.last_pages[i]:
+                counter = counter + 1
+        return counter
 
     def kill_root(self, event) -> None:
         if event.widget == self and self.master.winfo_exists():
@@ -364,9 +412,9 @@ if __name__ == "__main__":
         output_names = grouper.readFile(args.output_names_filepath)
     else:
         output_names = None
-    if args.gui:
+    if args.gui or frozen:
         root = tk.Tk()
         root.withdraw()
-        SplitGUI(root,fitz.open(args.filename),output_names)
+        SplitGUI(root,args.filename,output_names)
     else:
         splitPDFs(**vars(args))

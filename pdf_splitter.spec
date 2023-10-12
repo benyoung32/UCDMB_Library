@@ -1,11 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 
-a = Analysis(
-    ['crop_tool.py'],
+b = Analysis(
+    ['pdf_splitter.py'],
     pathex=[],
     binaries=[],
-    datas=[('alias.json','.'),('substitution.json','.'),('template.png','.')],
+    datas=[],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -13,14 +13,14 @@ a = Analysis(
     excludes=['pandas','numpy'],
     noarchive=False,
 )
-pyz = PYZ(a.pure)
+b_pyz = PYZ(a.pure)
 
-exe = EXE(
+b_exe = EXE(
     pyz,
-    a.scripts,
+    b.scripts,
     [],
     exclude_binaries=True,
-    name='crop_tool',
+    name='pdf_splitter',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -39,5 +39,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='crop_tool',
+    name='pdf_splitter',
 )
