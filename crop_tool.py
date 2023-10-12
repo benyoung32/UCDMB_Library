@@ -18,14 +18,16 @@ def savePageImage(page: fitz.Page, filepath:str)-> None:
     pixmap= page.get_pixmap(dpi=300,colorspace='GRAY')
     pixmap.save(filepath)
 
-def getPageScaledImage(parent, page: fitz.Page, dpi = 300, resize = True) -> tk.PhotoImage:
+def getPagePILImage(parent, page:fitz.Page, dpi = 300, resize:fitz.Point = None) -> Image:
     pix = page.get_pixmap(dpi=dpi,colorspace='GRAY')
     parent.page_image = Image.frombytes('L', [pix.width, pix.height], pix.samples)
     if resize:
-        width, height = page.bound().br
+        width, height = resize
         parent.page_image = parent.page_image.resize(size=(int(width), int(height)))
-    my_image = img = ImageTk.PhotoImage(parent.page_image,master=parent)
-    # print(my_image)
+    return parent.page_image
+
+def getPageScaledImage(parent, page: fitz.Page, dpi = 300, resize:fitz.Point = None) -> tk.PhotoImage:
+    my_image = img = ImageTk.PhotoImage(getPagePILImage(parent, page,dpi, resize),master=parent)
     return my_image
 
 class CropTool(tk.Toplevel):
@@ -88,7 +90,7 @@ class CropTool(tk.Toplevel):
         self.twoinone_box.grid(row=4,column=0,sticky = 'nwes',columnspan=2)
         self.rightalign_box.grid(row=5,column=0,sticky = 'nwes',columnspan=2)
         self.main_frame.pack(padx=PADDING,pady=PADDING,fill='none')
-        myimage = getPageScaledImage(self,page)
+        myimage = getPageScaledImage(self,page,resize=page.bound.br())
         self.pdf_canvas.create_image(2,2,image=myimage,anchor='nw')
         self.tl = fitz.Point(2,2)
         self.br = copy(self.page_br)
@@ -302,6 +304,7 @@ class PDFCanvas(tk.Frame):
         tk.Frame.__init__(self, parent)
         self.doc = doc
         self.page_images = [None] * doc.page_count
+        self.pagenum = 0
         page = doc[0]
         br = page.bound().br
         self.configure(relief='groove',borderwidth=4,width=int(br.x),
@@ -316,22 +319,52 @@ class PDFCanvas(tk.Frame):
             self.label = None
         self.image_canvas = tk.Canvas(self,bg='white',width=br.x, height=br.y)
         self.image_canvas.grid(row=1,column=0)
+        self.bind('<Configure>', self.updateImageSize)
         self.updatePage(0)
+
+    # def resizeImage(self, img, newWidth, newHeight) -> tk.PhotoImage:
+    #     oldWidth = img.width()
+    #     oldHeight = img.height()
+    #     newPhotoImage = tk.PhotoImage(width=newWidth, height=newHeight)
+    #     for x in range(newWidth):
+    #         for y in range(newHeight):
+    #             xOld = int(x*oldWidth/newWidth)
+    #             yOld = int(y*oldHeight/newHeight)
+    #             rgb = '#%02x%02x%02x' % img.get(xOld, yOld)
+    #             newPhotoImage.put(rgb, (x, y))
+    #     return newPhotoImage
+    
+    def updateImageSize(self, event) -> None:
+        self.updateImage(self.page_images[self.pagenum])
+        # img = self.page_images[self.pagenum]
+        # img.resize(width =event.width, height = event.height)
+        # self.updateImage(img)
+        # print(event.width)
+        # print(event.height)
+    
 
     def updatePage(self, page_number:int) -> None:
         if not self.page_images[page_number]:
-            self.page_images[page_number] = getPageScaledImage(self, self.doc[page_number],dpi=100,resize=True)
+            page = self.doc[page_number]
+            self.page_images[page_number] = getPagePILImage(self, page,dpi=100)
         img = self.page_images[page_number]
+        self.pagenum = page_number
         self.updateImage(img)
 
-    def updateImage(self, img:ImageTk.PhotoImage) -> None:
-        self.img = img
+    def updateImage(self, img:Image) -> None:
+        # self.img = img
         self.clear()
+        # fit image to frame
+        width, height = self.image_canvas.winfo_width, self.image_canvas.winfo_height
+        # img = img.resize(size=(width, height))
+        print((width, height))
+        self.img = ImageTk.PhotoImage(img,size=(width,height))
         self.image_id = self.image_canvas.create_image(0,0,image=self.img,anchor='nw')
 
     def preloadImages(self) -> None:
         for i, page in enumerate(self.doc):
-            self.page_images[i] = getPageScaledImage(self, page,dpi=100,resize=True)
+            self.page_images[i] = getPagePILImage(self, page,dpi=100)
+    
 
     def clear(self) -> None:
         if self.image_id != -1:

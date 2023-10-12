@@ -260,6 +260,10 @@ class SplitGUI(tk.Toplevel):
 
         # holds all subframes
         self.main_frame = tk.Frame(self, bg='yellow')
+        self.main_frame.columnconfigure(0, weight=1)
+        self.main_frame.columnconfigure(1, weight=1)
+        self.main_frame.rowconfigure(0, weight=1,minsize=100)
+        self.main_frame.rowconfigure(1, weight=1)
         # init buttons
         # holds buttons on the bottom
         button_frame = tk.Frame(self.main_frame, bg='blue',height=100,width = int(br.x)*1.5)
@@ -276,26 +280,38 @@ class SplitGUI(tk.Toplevel):
         self.output_entry.grid(row=0,column=3,columnspan=2,padx=40)
         # init page canvases, which display the pdf pages 
         # holds page canvases in the center
-        canvas_frame= tk.Frame(self.main_frame,bg='orange')
+        self.canvas_frame= tk.Frame(self.main_frame,bg='orange')
         self.page_label1 = tk.StringVar(self)
         self.page_label2 = tk.StringVar(self)
-        self.page_canvas1 = crop.PDFCanvas(canvas_frame, doc, self.page_label1)
+        self.page_canvas1 = crop.PDFCanvas(self.canvas_frame, doc, self.page_label1)
         # page_canvas2 displays 1 page after page_canvas1, such that there are two adjacent pages displayed at once
-        self.page_canvas2 = crop.PDFCanvas(canvas_frame, doc, self.page_label2)
+        self.page_canvas2 = crop.PDFCanvas(self.canvas_frame, doc, self.page_label2)
         self.pagenum = 0
         self.after(500,self.setupCanvases) # only load images after opening
         # set up element grids
+        self.canvas_frame.columnconfigure(0, weight=1)
+        self.canvas_frame.columnconfigure(1, weight=1)
         self.page_canvas1.grid(row=0,column=0)
-        self.page_canvas2.grid(row=0,column=1,)
-        canvas_frame.grid(row=0,column=0,padx=0,pady=20)
-        button_frame.grid(row=1,column=0,padx=10,pady=10,sticky='nwes')
-
+        self.page_canvas2.grid(row=0,column=1)
+        self.canvas_frame.grid(row=1,column=0,padx=0,pady=20)
+        button_frame.grid(row=0,column=0,padx=10,pady=10,sticky='nwes')
+        # button_frame.pack(fill='both')
         self.bind("<Destroy>", self.kill_root)
         self.main_frame.bind('<Button-1>', lambda e : self.focus_set())
         self.bind('<KeyPress>', self.key_input)
-        self.main_frame.pack(fill='y',expand=True)
+        self.bind('<Configure>', self.resize)
+        # self.main_frame.pack(fill='y',expand=True)
+        self.main_frame.pack()
         self.mainloop()
-    
+
+    def resize(self, event) -> None:
+        pass
+        # print(event)
+        # self.main_frame.config(width=event.width, height=event.height)
+        # self.canvas_frame.configure(width=event.width,height=event.height)
+        # self.page_canvas1.configure(width=event.width/2, height=event.height/2)
+        # self.main_frame.pack(fill ='y',expand=True)
+
     def setupCanvases(self) -> None:
         self.page_canvas1.preloadImages()
         self.page_canvas2.page_images = self.page_canvas1.page_images
