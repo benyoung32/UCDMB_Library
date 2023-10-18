@@ -1,0 +1,4 @@
+snare
+quads
+cymbals
+basses

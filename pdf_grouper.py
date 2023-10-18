@@ -98,6 +98,7 @@ def main(folderlist: list[str], parts: list[str], output:str, combine:bool = Fal
             continue
         combined_doc = reader.combineDocuments(part_docs)
         part_name = part.replace('0', '').strip()
+        part_name = matchPart(part_name,True,True).strip()
         new_filepath = output + '\\' + part_name + ".pdf"
         if move:
             new_folder = output + '\\' + part_name
@@ -139,7 +140,7 @@ def main(folderlist: list[str], parts: list[str], output:str, combine:bool = Fal
                         if j >= len(part_docs):
                             break
                         final_combined_doc.insert_pdf(part_docs[j])
-        reader.saveDocument(final_combined_doc,output + '\\all_parts' + '.pdf',None)
+        reader.saveDocument(final_combined_doc,output + '\\all_parts' + '.pdf','')
 
 def findMatches(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
     '''
@@ -360,6 +361,6 @@ if __name__ == "__main__":
         partlist[i] = matchPart(partlist[i])
     partlist = [part for part in partlist if part != ERROR_PART]
     # partlist.sort()
-    # print(partlist)
+    print(partlist)
     main(folders, partlist, outputfolder, combine, move)
     # init("C:\\Users\\benyo\\Downloads\\folder\\Roaring 20's", parts)

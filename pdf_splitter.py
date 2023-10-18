@@ -1,4 +1,5 @@
 import argparse
+import shutil
 import sys
 import os
 import pdf_reader as reader
@@ -6,7 +7,7 @@ import crop_tool as crop
 import pdf_grouper as grouper
 import fitz
 import tkinter as tk
-# import cv2 as cv
+import cv2 as cv
 import math
 from itertools import combinations
 
@@ -106,7 +107,7 @@ def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = Fals
         split_pdf(filepath,last_pages,songs)
 
 def split_pdf(filepath:str,last_pages:list[bool], 
-              page_titles:list[str],separate_folders:bool = False) -> None:
+              page_titles:list[str],separate_folders:bool = False, add:bool = True) -> None:
     doc = fitz.open(filepath)
     fmt = fitz.paper_rect('letter')
     new_doc = fitz.Document(rect=fmt)
@@ -136,7 +137,10 @@ def split_pdf(filepath:str,last_pages:list[bool],
                     pass
                 reader.saveDocument(new_doc, new_folder + '\\' + extra + ' - ' + base + '.pdf', '')
             else: 
-                reader.saveDocument(new_doc, new_folder + '\\' + base + ' - ' + extra + '.pdf', '') # save and close old doc
+                if add:
+                    reader.saveDocument(new_doc, new_folder + '\\' + base + ' - ' + extra + '.pdf', '') # save and close old doc
+                else:
+                    reader.saveDocument(new_doc, new_folder + '\\' + extra + '.pdf', '')
             new_doc = fitz.open()
             # print(last_pages[k], ', ' + str(k))
             song_counter = song_counter + 1
@@ -226,7 +230,7 @@ def getPartFromImage(img) -> str:
     return grouper.ERROR_PART
 
 class SplitGUI(tk.Toplevel):
-    def __init__(self, parent, filepath:str, output_names:list[str]) -> None:
+    def __init__(self, parent, filepath:str, output_names:list[str] = None, last_pages:list[bool] = None) -> None:
         # set up window
         tk.Toplevel.__init__(self, parent)
         self.title('Split PDF')
@@ -239,13 +243,20 @@ class SplitGUI(tk.Toplevel):
         self.geometry('{0}x{1}'.format(int(br.x)*2+50, int(br.y)+200))
         
         # set up internal arrays
-        try:
-            self.last_pages = grouper.readFile(self.directory + '//' + self.basename + ' pages.txt')
-            self.last_pages = [reader.strtobool(s) for s in self.last_pages]
-            print('opened file')
-        except:
+        if last_pages:
             self.last_pages = [True] * doc.page_count
-            print('no last pages found')
+            for i, b in enumerate(self.last_pages):
+                if i >= len(last_pages):
+                    break
+                self.last_pages[i] = last_pages[i]
+        else:
+            try:
+                self.last_pages = grouper.readFile(self.directory + '//' + self.basename + ' pages.txt')
+                self.last_pages = [reader.strtobool(s) for s in self.last_pages]
+                print('opened file')
+            except:
+                self.last_pages = [True] * doc.page_count
+                print('no last pages found')
         # print(output_names)
         if output_names:
             self.output_names = output_names
@@ -271,13 +282,18 @@ class SplitGUI(tk.Toplevel):
         done_button = tk.Button(button_frame, text='Split PDF', command=self.done,font=crop.MYFONT)
         separate_button = crop.CheckButtonWithLabel(button_frame,'Put into seperate folders?',self.separate_var)
         separate_button.label.configure(font=crop.MYFONT)
+        if output_names:
+            add_button = tk.Button(button_frame, text='Add Song', command=self.add,font=crop.MYFONT)
+            add_button.grid(row = 1, column=0, padx=20)
+            skip_button = tk.Button(button_frame, text='Skip', command=self.skip,font=crop.MYFONT)
+            skip_button.grid(row = 1, column=1, padx=20)
         self.output_entry = crop.EntryWithLabel(button_frame, 'Output File Name')
         self.output_entry.label.configure(font=crop.MYFONT)
         self.output_entry.entry.configure(font=crop.MYFONT,width=30)
         self.output_entry.entry.insert(0,self.output_names[0])
-        done_button.grid(row=0,column=0,padx=40)
-        separate_button.grid(row=0,column=1,columnspan=2,padx=40)
-        self.output_entry.grid(row=0,column=3,columnspan=2,padx=40)
+        done_button.grid(row=0,column=0,padx=30)
+        separate_button.grid(row=0,column=1,columnspan=2,padx=30)
+        self.output_entry.grid(row=0,column=3,columnspan=2,padx=30)
         # init page canvases, which display the pdf pages 
         # holds page canvases in the center
         self.canvas_frame= tk.Frame(self.main_frame,bg='orange')
@@ -342,7 +358,13 @@ class SplitGUI(tk.Toplevel):
     def done(self) -> None:
         save_list(self.last_pages,self.directory + '//' + self.basename + ' pages.txt')
         save_list(self.output_names,self.directory + '//' + self.basename + ' output.txt')
-        split_pdf(self.filepath,self.last_pages,self.output_names,self.separate_var.get())
+        split_pdf(self.filepath,self.last_pages,self.output_names,self.separate_var.get(),False)
+
+    def add(self) -> None:
+        self.output_names.insert(self.getOutputIndexAtPage(self.pagenum),self.output_entry.get())
+    
+    def skip(self) -> None:
+        print(self.output_names.pop(self.getOutputIndexAtPage(self.pagenum)))
 
     def set_page_num(self, num:int) -> None:
         pc1,pc2,entry = self.page_canvas1, self.page_canvas2,self.output_entry.entry
@@ -350,7 +372,8 @@ class SplitGUI(tk.Toplevel):
         self.page_label2.set(str(num + 2))
         new_index = self.getOutputIndexAtPage(num)
         if new_index == self.output_index:
-            print('same')
+            # print('same')
+            pass
         else:
             self.output_names[self.output_index] = entry.get() # save inputted value
             self.output_index = new_index
@@ -428,9 +451,18 @@ if __name__ == "__main__":
         output_names = grouper.readFile(args.output_names_filepath)
     else:
         output_names = None
+    # files = reader.getSubFiles(args.filename)
+    # # files = [grouper.getPartNameFromString(file) for file in files]
+    # files = [file for file in files if grouper.getPartNameFromString(file) == 'clarinet 2']
+    # # print(files)
+    # for f in files:
+    #     # d = f
+    #     d = f[0:-5] + '1.pdf'
+    #     # print(d)
+    #     shutil.copy(f,d)
     if args.gui or frozen:
         root = tk.Tk()
         root.withdraw()
-        SplitGUI(root,args.filename,output_names)
+        SplitGUI(root,args.filename,output_names,last_pages)
     else:
         splitPDFs(**vars(args))

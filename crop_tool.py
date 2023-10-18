@@ -90,7 +90,7 @@ class CropTool(tk.Toplevel):
         self.twoinone_box.grid(row=4,column=0,sticky = 'nwes',columnspan=2)
         self.rightalign_box.grid(row=5,column=0,sticky = 'nwes',columnspan=2)
         self.main_frame.pack(padx=PADDING,pady=PADDING,fill='none')
-        myimage = getPageScaledImage(self,page,resize=page.bound.br())
+        myimage = getPageScaledImage(self,page,resize=page.bound().br)
         self.pdf_canvas.create_image(2,2,image=myimage,anchor='nw')
         self.tl = fitz.Point(2,2)
         self.br = copy(self.page_br)
@@ -111,7 +111,7 @@ class CropTool(tk.Toplevel):
         key_string = self.keyvar.get()
         # print(key_string)
         negative = False
-        if 'Shift' in key_string:
+        if 'Shift' in key_string or 'Shift_L' in key_string:
             negative = True
         if 'Control_L' in key_string:
             scale = 2
@@ -139,6 +139,7 @@ class CropTool(tk.Toplevel):
                 br.y = br.y + scale
         self.drawCropBox()
         self.after(30,self.checkKeys)
+    
     def onClick(self, event):
         # print('beep')
         self.pdf_canvas.focus_set()
@@ -195,6 +196,7 @@ class CropTool(tk.Toplevel):
 
     def printSettingsString(self) -> None:
         print(self.getSettingsString())
+    
     # apply current settings to the folder where the sample came from
     def cropFolder(self) -> None:
         # print(path)
@@ -202,6 +204,7 @@ class CropTool(tk.Toplevel):
         files = reader.getSubFiles(folder)
         # print(files)
         reader.processDocs(files, reader.prefix, **self.getSettingsDict())
+    
     # get rotation from entry box, sanitize input
     def getRotation(self) -> int:
         rotation = self.rotate_entry.get()
@@ -217,7 +220,6 @@ class CropTool(tk.Toplevel):
 
     def createPreview(self) -> None:
         args = self.getSettingsDict()
-        # print(args)
         doc = reader.openDocuments(self.path,size='a4')[self.path]
         # alter document using settings 
         newdoc = reader.createCroppedDocument(doc,**args)
@@ -226,6 +228,7 @@ class CropTool(tk.Toplevel):
         new_br = newdoc[0].bound().br
         # create new window to show altered document
         preview_window = PDFWindow(self,newdoc,'Crop Preview')
+    
     def updateRotation(self) -> None:
         # global main_frame, pdf_canvas, rotate_var,page_image,page_br
         # # rotate pdf_canvas width and height, repack gui elements
@@ -296,7 +299,7 @@ class PDFWindow(tk.Toplevel):
         self.image_id = -1
         self.title(title)
         self.geometry('{0}x{1}'.format(int(br.x), int(br.y)))
-        self.image_canvas = PDFCanvas(self,doc[0],'page 1')
+        self.image_canvas = PDFCanvas(self,doc)
         self.image_canvas.pack()
 
 class PDFCanvas(tk.Frame):
@@ -319,7 +322,7 @@ class PDFCanvas(tk.Frame):
             self.label = None
         self.image_canvas = tk.Canvas(self,bg='white',width=br.x, height=br.y)
         self.image_canvas.grid(row=1,column=0)
-        self.bind('<Configure>', self.updateImageSize)
+        # self.bind('<Configure>', self.updateImageSize)
         self.updatePage(0)
 
     # def resizeImage(self, img, newWidth, newHeight) -> tk.PhotoImage:
@@ -346,24 +349,24 @@ class PDFCanvas(tk.Frame):
     def updatePage(self, page_number:int) -> None:
         if not self.page_images[page_number]:
             page = self.doc[page_number]
-            self.page_images[page_number] = getPagePILImage(self, page,dpi=100)
+            self.page_images[page_number] = getPageScaledImage(self, page,dpi=100,resize=page.bound().br)
         img = self.page_images[page_number]
         self.pagenum = page_number
         self.updateImage(img)
 
     def updateImage(self, img:Image) -> None:
-        # self.img = img
+        self.img = img
         self.clear()
         # fit image to frame
-        width, height = self.image_canvas.winfo_width, self.image_canvas.winfo_height
+        # width, height = self.image_canvas.winfo_width, self.image_canvas.winfo_height
         # img = img.resize(size=(width, height))
-        print((width, height))
-        self.img = ImageTk.PhotoImage(img,size=(width,height))
+        # print((width, height))
+        # self.img = ImageTk.PhotoImage(img,size=(width,height))
         self.image_id = self.image_canvas.create_image(0,0,image=self.img,anchor='nw')
 
     def preloadImages(self) -> None:
         for i, page in enumerate(self.doc):
-            self.page_images[i] = getPagePILImage(self, page,dpi=100)
+            self.page_images[i] = getPageScaledImage(self, page,dpi=100,resize=page.bound().br)
     
 
     def clear(self) -> None:
