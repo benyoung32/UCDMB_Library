@@ -94,9 +94,15 @@ def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = Fals
                     if from_part: part_file.write(getPartFromImage(img) + '\n')
                     print('page ', str(index), '...')   
         if from_part: part_file.close()
-        save_list(last_pages, os.path.basename(filepath).strip('.pdf') + '.txt')
+        # print(filepath)
+        try:
+            os.mkdir(filepath.strip('.pdf'))
+        except:
+            pass
+        partsfilepath = filepath.strip('.pdf') + '\\' + 'parts.txt'
+        save_list(last_pages, partsfilepath)
         if from_part:
-            songs = grouper.readFile('parts.txt')
+            songs = grouper.readFile(partsfilepath)
         elif output_names_filepath:
             songs = grouper.readFile(output_names_filepath)
         else:

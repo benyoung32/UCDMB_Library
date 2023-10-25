@@ -71,6 +71,8 @@ class CropTool(tk.Toplevel):
                                 width = 10, height = 1,text='Export Settings')
         self.crop_folder_button = tk.Button(self.button_frame, command=self.cropFolder,
                                 width = 20, height = 1, text = 'Apply to folder')
+        self.crop_file_button = tk.Button(self.button_frame, command=self.cropFile, width = 20, height = 1,
+                                          text = 'Apply to file')
         self.rotate_entry = EntryWithLabel(self.button_frame,'Rotate?','')
         self.fullsize_box = CheckButtonWithLabel(self.button_frame, 
                                                 'Full Size?',self.fullsize_var )
@@ -83,7 +85,8 @@ class CropTool(tk.Toplevel):
         self.button_frame.grid(row=0,column=1,sticky='nw',pady=PADDING,padx=PADDING)
         self.preview_button.grid(row=0,column=0,sticky='nwes')
         self.export_button.grid(row=0,column=1,sticky='nwes')
-        self.crop_folder_button.grid(row=6,column=0,sticky='nwes')
+        self.crop_file_button.grid(row=6,column=0, sticky='nwes')
+        self.crop_folder_button.grid(row=7,column=0,sticky='nwes')
         self.rotate_entry.grid(row=1,column=0,sticky='nwes',columnspan=2)
         self.fullsize_box.grid(row=2,column=0,sticky = 'nwes',columnspan=2)
         self.expand_box.grid(row=3,column=0,sticky = 'nwes',columnspan=2)
@@ -163,11 +166,6 @@ class CropTool(tk.Toplevel):
                         self.tl.y, self.br.x, self.br.y,outline='dodger blue',width=1)
         # pdf_canvas.create_rectangle(10,10,100,100)
 
-    def onShiftKeyPress(self,event) -> None:
-        tl, br = self.tl, self.br
-        print('shift pressed')
-        return
-        
     def getSettingsDict(self) -> dict[str, any]:
         args = {}
         tl, br = self.tl, self.br
@@ -205,6 +203,8 @@ class CropTool(tk.Toplevel):
         # print(files)
         reader.processDocs(files, reader.prefix, **self.getSettingsDict())
     
+    def cropFile(self) -> None:
+        reader.processDocs(self.path, reader.prefix, **self.getSettingsDict())
     # get rotation from entry box, sanitize input
     def getRotation(self) -> int:
         rotation = self.rotate_entry.get()
