@@ -4,7 +4,9 @@
         "flutes",
         "fl",
         "flute/piccolo",
-        "fl/picc"
+        "fl/picc",
+        "piccolo-flute",
+        "piccolo flute"
     ],
     "piccolo": [
         "piccolo",
@@ -113,8 +115,6 @@
         "aux percussion"
     ],
     "score": [
-        "score",
-        "all",
-        "full"
+        "score"
     ]
 }

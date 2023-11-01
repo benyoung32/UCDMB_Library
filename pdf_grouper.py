@@ -33,7 +33,7 @@ files = None
 PART_NUMBERS = ['1','2','3','4','5']
 PART_NUMBERS_FANCY = ['1st','2nd','3rd','4th','5th']
 REMOVED_CHARS = ['\\','/',':','.','_','-','bb','Bb','&','+','pdf']
-IGNORED_WORDS = []
+IGNORED_WORDS = ['full']
 
 def openFolder() -> str: 
     '''
@@ -127,6 +127,16 @@ def main(folderlist: list[str], parts: list[str], output:str, combine:bool = Fal
                 else:
                     break
         print(instrument_groups)
+        fancy = True
+        if fancy:
+            page_count = 0
+            for part in parts:
+                if part in DRUMS:
+                    page_count += 1
+                else:
+                    page_count += 0.5
+            page_count = ceil(page_count)
+        page = 0
         for group in instrument_groups:
             for j in range(len(folderlist)):
                 for part in group:
@@ -139,6 +149,8 @@ def main(folderlist: list[str], parts: list[str], output:str, combine:bool = Fal
                     for i in range(count):
                         if j >= len(part_docs):
                             break
+                        if fancy:
+                            final_combined_doc[page].insert_image()
                         final_combined_doc.insert_pdf(part_docs[j])
         reader.saveDocument(final_combined_doc,output + '\\all_parts' + '.pdf','')
 
@@ -236,6 +248,7 @@ def getPartNameFromString(input:str) -> str:
     '''
     # first clean file name, remove seperators etc.
     cleaned_input = os.path.basename(os.path.normpath(input))
+    cleaned_input = cleaned_input.replace('Piccolo-Flute','Flute')
     for rm in REMOVED_CHARS:
         cleaned_input = cleaned_input.replace(rm, ' ')
         cleaned_input = cleaned_input.strip()
@@ -325,6 +338,8 @@ def readFile(filepath:str) -> list[str]:
     reqs = []
     with open(filepath) as file:
         while line := file.readline():
+            line = line.strip()
+            line = line.strip("\'\"")
             reqs.append(line.strip())
         file.close()
     return reqs
@@ -350,13 +365,14 @@ if __name__ == "__main__":
                         help = 'Combine found files into one file')
     parser.add_argument('-m',dest = 'move',action='store_true',
                         help= 'Copy found files into one folder per part')
-    print(parser.parse_args())
+    # print(parser.parse_args())
     folderlist, partlist, outputfolder, combine, move = vars(parser.parse_args()).values()
     partlist = readFile(partlist)
     if folderlist in ['p','prompt']:
         folders = [openFolder()]
     else:
         folders = readFile(folderlist)
+    print(folders)
     for i in range(len(partlist)):
         partlist[i] = matchPart(partlist[i])
     partlist = [part for part in partlist if part != ERROR_PART]

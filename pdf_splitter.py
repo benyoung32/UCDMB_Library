@@ -14,6 +14,7 @@ from itertools import combinations
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     # print('running in a PyInstaller bundle')
     frozen = True
+
 else:
     # print('running in a normal Python process')
     frozen = False
@@ -321,18 +322,13 @@ class SplitGUI(tk.Toplevel):
         self.bind("<Destroy>", self.kill_root)
         self.main_frame.bind('<Button-1>', lambda e : self.focus_set())
         self.bind('<KeyPress>', self.key_input)
-        self.bind('<Configure>', self.resize)
+        # self.bind('<Configure>', self.resize)
         # self.main_frame.pack(fill='y',expand=True)
         self.main_frame.pack()
         self.mainloop()
 
-    def resize(self, event) -> None:
-        pass
-        # print(event)
-        # self.main_frame.config(width=event.width, height=event.height)
-        # self.canvas_frame.configure(width=event.width,height=event.height)
-        # self.page_canvas1.configure(width=event.width/2, height=event.height/2)
-        # self.main_frame.pack(fill ='y',expand=True)
+    # def resize(self, event) -> None:
+    #     pass
 
     def setupCanvases(self) -> None:
         self.page_canvas1.preloadImages()

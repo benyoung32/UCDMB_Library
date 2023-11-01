@@ -1,13 +1,4 @@
-Tenor Drum 
-Tenor Drum 
-Tenor Drum 
-Tenor Drum 
-Tenor Drum 
-Tenor Drum 
-Snare Drum 
-Snare Drum 
-Tenor Drum 
-Tenor Drum 
-Bass Drum 
-Bass Drum 
-Cymbal 
+Bari Sax
+Bari Sax
+Bari Sax
+Bari Sax
