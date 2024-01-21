@@ -17,7 +17,7 @@ else:
     ALIAS_FILE = "alias.json"
     SUBSTITUTION_FILE = 'substitution.json'
 
-ERROR_PATH = 'no_match'
+ERROR_PATH = 'no_match' 
 ERROR_PART = 'nan 0'
 f = open(ALIAS_FILE)
 alias = json.load(f)
@@ -86,14 +86,11 @@ def main(folderlist: list[str], parts: list[str], output:str, combine:bool = Fal
     unique_parts.extend(drum_parts)
     # print(unique_parts)
     part_doc_dict = {}
-
     for part in unique_parts:
         files = found_parts[part]
-        # print(files)
         changed_files = [file for file in files if file != ERROR_PATH]
         part_docs = reader.openDocuments(changed_files).values()
-        if combine:
-            part_doc_dict[part] = part_docs
+        part_doc_dict[part] = part_docs
         if changed_files == []: # check if there are any files
             continue
         combined_doc = reader.combineDocuments(part_docs)
@@ -111,48 +108,80 @@ def main(folderlist: list[str], parts: list[str], output:str, combine:bool = Fal
                 shutil.copy(file, new_folder + '\\' + os.path.basename(file))
 
         reader.saveDocument(combined_doc, new_filepath, '', close = False)
-    if combine:
-        instrument_groups = []
-        i = 0
-        while (i < len(unique_parts)):
-            instrument = unique_parts[i].split()[0]
-            instrument_groups.append([unique_parts[i]])
-            if i == len(unique_parts) - 1:
+    if not combine: return
+    instrument_groups = []
+    i = 0
+    while (i < len(unique_parts)):
+        instrument = unique_parts[i].split()[0]
+        instrument_groups.append([unique_parts[i]])
+        if i == len(unique_parts) - 1:
+            break
+        while (True and i < len(unique_parts) - 1):
+            i = i + 1 
+            next_instrument = unique_parts[i].split()[0]
+            if instrument == next_instrument:
+                instrument_groups[-1].append(unique_parts[i])
+            else:
                 break
-            while (True and i < len(unique_parts) - 1):
-                i = i + 1 
-                next_instrument = unique_parts[i].split()[0]
-                if instrument == next_instrument:
-                    instrument_groups[-1].append(unique_parts[i])
-                else:
-                    break
-        print(instrument_groups)
-        fancy = True
-        if fancy:
-            page_count = 0
-            for part in parts:
-                if part in DRUMS:
-                    page_count += 1
-                else:
-                    page_count += 0.5
-            page_count = ceil(page_count)
-        page = 0
-        for group in instrument_groups:
-            for j in range(len(folderlist)):
-                for part in group:
-                    if part in DRUMS:
-                        count = parts.count(part)
-                    else:
-                        count = ceil(parts.count(part) / 2)
+    print(instrument_groups)
+    fancy = True
+    if fancy:
+        final_page_count = 0
+        for part in unique_parts:
+            if part in DRUMS:
+                pass
+            else: 
+                for part_doc in part_doc_dict[part]:
+                    final_page_count += 0.5 * part_doc.page_count * parts.count(part)
+        final_page_count = ceil(final_page_count)
+        w, h = fitz.paper_rect('letter').width, fitz.paper_rect('letter').height
+        final_combined_doc.new_page(width = w, height = h)
+    print(final_page_count, len(parts))
+    page = 0
+    top = True
+    top_rect = final_combined_doc[0].bound()
+    top_rect.y1 = top_rect.y1 / 2
+    bot_rect = final_combined_doc[0].bound()
+    bot_rect.y0 = bot_rect.y1 / 2
+    r = top_rect
+    for group in instrument_groups:
+        for j in range(len(folderlist)):
+            for part in group:
+                part_docs = list(part_doc_dict[part])
+                if j >= len(part_docs): break
+                if fancy:
+                    if part in DRUMS: 
+                        for _ in range(parts.count(part)): 
+                            final_combined_doc.insert_pdf(part_docs[j])
+                        continue
+                    images = getTopHalf(part_docs[j])
+                    for _ in range(parts.count(part)):
+                        for img in images:
+                            final_combined_doc[page].insert_image(r, pixmap=img)
+                            print(part, page)
+                            page += 1
+                            if page > final_page_count - 1:
+                                top = False
+                                page = 0
+                                r = bot_rect
+                            if top: final_combined_doc.new_page(width = w, height = h)
+                else: 
+                    # drums take up whole page, while other parts take half
+                    if part in DRUMS: count = parts.count(part)
+                    else: count = ceil(parts.count(part) / 2)
                     # for each requested song, put each part count times
-                    part_docs = list(part_doc_dict[part])
                     for i in range(count):
-                        if j >= len(part_docs):
-                            break
-                        if fancy:
-                            final_combined_doc[page].insert_image()
                         final_combined_doc.insert_pdf(part_docs[j])
-        reader.saveDocument(final_combined_doc,output + '\\all_parts' + '.pdf','')
+    reader.saveDocument(final_combined_doc,output + '\\all_parts' + '.pdf','')
+
+def getTopHalf(doc:fitz.Document) -> list[fitz.Pixmap]:
+    out = []
+    for page in doc:
+        r = page.bound()
+        r.y1 /= 2
+        page.set_cropbox(r)
+        out.append(page.get_pixmap(dpi=300))
+    return out 
 
 def findMatches(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
     '''

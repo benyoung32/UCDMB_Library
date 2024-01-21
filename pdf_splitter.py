@@ -54,31 +54,13 @@ def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = Fals
         for doc in docs.values():
             for page in doc:
                 page.set_rotation(rotate)
-    if simple:
-        for filepath, doc in docs.items():
-            k = 1
-            directory = os.path.dirname(filepath)
-            base = os.path.basename(filepath).strip('.pdf')
-            # new_folder = directory + '\\' 
-            try:
-                os.mkdir(directory + '\\' + base)
-            except:
-                pass
-            for src_page in doc:
-                new_doc = fitz.Document(rect=fmt)
-                new_doc.insert_pdf(doc, from_page=src_page.number,to_page=src_page.number)
-                # page = new_doc.new_page()
-                # print(filepath)
-                new_doc.save(directory + '\\' + base + '\\' + base + str(k) + '.pdf',
-                            deflate = True, 
-                            deflate_images = True, garbage = 4, clean = True)
-                new_doc.close()
-                k = k + 1
-        return
     for filepath, doc in docs.items():
-        i = 1
-        if from_part: part_file = open('parts' + str(i) + '.txt', 'w+')
         last_pages = [None] * doc.page_count
+        if from_part: 
+            partsfilepath = os.path.basename(filepath)+ '.txt'
+            part_file = open(partsfilepath, 'w+')
+        if simple:
+            pages_override = [True] * doc.page_count
         if pages_override:
             for index,b in enumerate(pages_override):
                 if index >= len(last_pages):
@@ -100,18 +82,18 @@ def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = Fals
             os.mkdir(filepath.strip('.pdf'))
         except:
             pass
-        partsfilepath = filepath.strip('.pdf') + '\\' + 'parts.txt'
-        save_list(last_pages, partsfilepath)
+        pagefilepath = os.path.basename(filepath) + ' pages.txt'
+        save_list(last_pages, pagefilepath)
         if from_part:
             songs = grouper.readFile(partsfilepath)
         elif output_names_filepath:
             songs = grouper.readFile(output_names_filepath)
         else:
             songs = []
-        i = i + 1
         if no_save:
             continue # return only if saving is not needed
-        split_pdf(filepath,last_pages,songs)
+        seperate_folders = False
+        split_pdf(filepath,last_pages,songs,separate_folders=seperate_folders,add=not seperate_folders)
 
 def split_pdf(filepath:str,last_pages:list[bool], 
               page_titles:list[str],separate_folders:bool = False, add:bool = True) -> None:
@@ -207,8 +189,6 @@ def getPartFromImage(img) -> str:
     # Read image from which text needs to be extracted
     img = img[0:len(img)//5]
     # Preprocessing the image starts
-    # Convert the image to gray scale
-    # gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     # Performing OTSU threshold
     ret, thresh1 = cv.threshold(img, 0, 255, cv.THRESH_OTSU | cv.THRESH_BINARY_INV)
     
@@ -277,14 +257,14 @@ class SplitGUI(tk.Toplevel):
         self.output_index = 0
 
         # holds all subframes
-        self.main_frame = tk.Frame(self, bg='yellow')
+        self.main_frame = tk.Frame(self, bg='grey20')
         self.main_frame.columnconfigure(0, weight=1)
         self.main_frame.columnconfigure(1, weight=1)
         self.main_frame.rowconfigure(0, weight=1,minsize=100)
         self.main_frame.rowconfigure(1, weight=1)
         # init buttons
         # holds buttons on the bottom
-        button_frame = tk.Frame(self.main_frame, bg='blue',height=100,width = int(br.x)*1.5)
+        button_frame = tk.Frame(self.main_frame, bg='grey10',height=100,width = int(br.x)*1.5)
         self.separate_var = tk.BooleanVar(button_frame)
         done_button = tk.Button(button_frame, text='Split PDF', command=self.done,font=crop.MYFONT)
         separate_button = crop.CheckButtonWithLabel(button_frame,'Put into seperate folders?',self.separate_var)
@@ -353,7 +333,6 @@ class SplitGUI(tk.Toplevel):
             self.last_pages[self.pagenum] = not self.last_pages[self.pagenum]
             if self.pagenum != self.doc.page_count - 1:
                 newpage = self.pagenum + 1
-
         # print(self.pagenum)
         self.set_page_num(newpage)
 
