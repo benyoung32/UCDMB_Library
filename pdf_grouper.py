@@ -376,8 +376,6 @@ def readFile(filepath:str) -> list[str]:
 DRUMS = [matchPart(drum) for drum in ['snare','quads','cymbals','basses']]
 
 if __name__ == "__main__":
-    # init(openFolder())
-    # init("C:\\Users\\Ben\\Downloads\\ADJ_Everybody Talks - Ty Pon-20230907T050832Z-001")
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('folder list',type=str,
                 help = '''Filepath to text file containing on each line 
