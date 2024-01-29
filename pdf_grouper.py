@@ -1,5 +1,6 @@
 from math import ceil
 import shutil
+from xml.dom.minidom import Document
 import pdf_reader as reader
 import tkinter as tk
 import fitz
@@ -62,7 +63,98 @@ def printDict(dict:dict):
         else:
             print(v)
 
-def main(folderlist: list[str], parts: list[str], output:str, combine:bool = False, move:bool = False) -> None:
+def getUniqueParts(parts: list[str]):
+    unique_parts = list(set(parts))
+    unique_parts.sort()
+    # insert part to the back
+    drum_parts = [drum for drum in unique_parts if drum in DRUMS]
+    unique_parts = [part for part in unique_parts if part not in drum_parts]
+    unique_parts.extend(drum_parts)
+    return unique_parts
+
+def openPartFiles(unique_parts: list[str], part_filepaths: list[str]) -> dict:
+    part_doc_dict = {}
+    for part in unique_parts:
+        files = found_parts[part]
+        cleaned_files = [file for file in files if file != ERROR_PATH]
+        part_docs = reader.openDocuments(cleaned_files).values()
+        part_doc_dict[part] = part_docs
+    return part_doc_dict
+
+def combinePartDocs(part_dict:dict[str, Document], output_folder: str) -> None:
+    for part, docs in part_dict.items():
+        combined_doc = reader.combineDocuments(docs)
+        part_name = part.replace('0', '').strip()
+        part_name = matchPart(part_name,True,True).strip()
+        new_filepath = output_folder + '\\' + part_name + ".pdf"
+        reader.saveDocument(combined_doc, new_filepath, '', close = False)
+
+def moveFiles(parts: list[str], part_file_dict: dict[str, str], output_folder:str):
+    for p in parts:
+        files = part_file_dict[p]
+        files = [file for file in files if file != ERROR_PATH]
+        part_name = p.split()[0]
+        new_folder = output_folder + '\\' + part_name
+        try:
+            os.mkdir(new_folder)
+        except:
+            print('folder already exists')
+        i = 1
+        for file in files:
+            shutil.copy(file, new_folder + '\\' + os.path.basename(file))
+
+def buildTopBottomDocument(parts: list[str], part_doc_dict: dict, ):
+    final_page_count = 0
+    unique_parts = getUniqueParts(parts)
+    for part in unique_parts:
+        if part in DRUMS: continue
+        for part_doc in part_doc_dict[part]:
+            final_page_count += 0.5 * part_doc.page_count * parts.count(part)
+    final_page_count = ceil(final_page_count)
+    w, h = fitz.paper_rect('letter').width, fitz.paper_rect('letter').height
+    final_combined_doc.new_page(width = w, height = h)
+    print(final_page_count, len(parts))
+    page = 0
+    top = True
+    top_rect = final_combined_doc[0].bound()
+    top_rect.y1 = top_rect.y1 / 2
+    bot_rect = final_combined_doc[0].bound()
+    bot_rect.y0 = bot_rect.y1 / 2
+    r = top_rect
+    for _ in range(parts.count(part)): 
+        final_combined_doc.insert_pdf(part_docs[j])
+    for group in instrument_groups:
+        for j in range(len(folderlist)):
+            for part in group:
+                images = getTopHalf(part_docs[j])
+                for p in range(parts.count(part)):
+                    # print(p)
+                    for img in images:
+                        final_combined_doc[page].insert_image(r, pixmap=img)
+                        print(part, page)
+                        page += 1
+                        if page > final_page_count - 1:
+                            top = False
+                            page = 0
+                            r = bot_rect
+                        if top: final_combined_doc.new_page(width = w, height = h)
+
+
+def groupInstruments(parts: list[str]):
+    instrument_groups = []
+    group = []
+    for p in unique_parts:
+        if group == [] or p.split()[0] == group[0].split()[0]:
+            group.append(p)
+        else:
+            instrument_groups.append(group)
+            group = [p]
+    if group != []: instrument_groups.append(group)
+    return instrument_groups
+
+
+
+def main(folderlist: list[str], parts: list[str], output_folder:str, combine:bool = False, move:bool = False) -> None:
     '''
     Find all files corresponding to each part in parts in dir and its subdirs.
     Output results to output path, should be a folder. 
@@ -73,98 +165,23 @@ def main(folderlist: list[str], parts: list[str], output:str, combine:bool = Fal
     :param move: If true, move all found part files into one folder per part
     :return: None
     '''
-    # global folderlist, files
-    # folderlist = dir
-    found_parts = findMatches(folderlist, parts)
-    # printDict(found_parts)
     final_combined_doc = fitz.Document()
-    unique_parts = list(set(parts))
-    unique_parts.sort()
-    # insert part to the back
-    drum_parts = [drum for drum in unique_parts if drum in DRUMS]
-    unique_parts = [part for part in unique_parts if part not in drum_parts]
-    unique_parts.extend(drum_parts)
-    # print(unique_parts)
-    part_doc_dict = {}
-    for part in unique_parts:
-        files = found_parts[part]
-        changed_files = [file for file in files if file != ERROR_PATH]
-        part_docs = reader.openDocuments(changed_files).values()
-        part_doc_dict[part] = part_docs
-        if changed_files == []: # check if there are any files
-            continue
-        combined_doc = reader.combineDocuments(part_docs)
-        part_name = part.replace('0', '').strip()
-        part_name = matchPart(part_name,True,True).strip()
-        new_filepath = output + '\\' + part_name + ".pdf"
-        if move:
-            new_folder = output + '\\' + part_name
-            try:
-                os.mkdir(new_folder)
-            except:
-                print('folder already exists')
-            i = 1
-            for file in changed_files:
-                shutil.copy(file, new_folder + '\\' + os.path.basename(file))
-
-        reader.saveDocument(combined_doc, new_filepath, '', close = False)
+    unique_parts = getUniqueParts(parts)
+    print(unique_parts)
+    found_parts = findMatches(folderlist, unique_parts)
+    part_doc_dict = openPartFiles(unique_parts, found_parts)
+    combinePartDocs(part_doc_dict, output_folder)
+    if move: moveFiles(found_parts, output_folder)
     if not combine: return
-    instrument_groups = []
     i = 0
-    while (i < len(unique_parts)):
-        instrument = unique_parts[i].split()[0]
-        instrument_groups.append([unique_parts[i]])
-        if i == len(unique_parts) - 1:
-            break
-        while (True and i < len(unique_parts) - 1):
-            i = i + 1 
-            next_instrument = unique_parts[i].split()[0]
-            if instrument == next_instrument:
-                instrument_groups[-1].append(unique_parts[i])
-            else:
-                break
+    instrument_groups = []
     print(instrument_groups)
     fancy = True
-    if fancy:
-        final_page_count = 0
-        for part in unique_parts:
-            if part in DRUMS:
-                pass
-            else: 
-                for part_doc in part_doc_dict[part]:
-                    final_page_count += 0.5 * part_doc.page_count * parts.count(part)
-        final_page_count = ceil(final_page_count)
-        w, h = fitz.paper_rect('letter').width, fitz.paper_rect('letter').height
-        final_combined_doc.new_page(width = w, height = h)
-    print(final_page_count, len(parts))
-    page = 0
-    top = True
-    top_rect = final_combined_doc[0].bound()
-    top_rect.y1 = top_rect.y1 / 2
-    bot_rect = final_combined_doc[0].bound()
-    bot_rect.y0 = bot_rect.y1 / 2
-    r = top_rect
     for group in instrument_groups:
         for j in range(len(folderlist)):
             for part in group:
                 part_docs = list(part_doc_dict[part])
                 if j >= len(part_docs): break
-                if fancy:
-                    if part in DRUMS: 
-                        for _ in range(parts.count(part)): 
-                            final_combined_doc.insert_pdf(part_docs[j])
-                        continue
-                    images = getTopHalf(part_docs[j])
-                    for _ in range(parts.count(part)):
-                        for img in images:
-                            final_combined_doc[page].insert_image(r, pixmap=img)
-                            print(part, page)
-                            page += 1
-                            if page > final_page_count - 1:
-                                top = False
-                                page = 0
-                                r = bot_rect
-                            if top: final_combined_doc.new_page(width = w, height = h)
                 else: 
                     # drums take up whole page, while other parts take half
                     if part in DRUMS: count = parts.count(part)
@@ -172,7 +189,7 @@ def main(folderlist: list[str], parts: list[str], output:str, combine:bool = Fal
                     # for each requested song, put each part count times
                     for i in range(count):
                         final_combined_doc.insert_pdf(part_docs[j])
-    reader.saveDocument(final_combined_doc,output + '\\all_parts' + '.pdf','')
+    reader.saveDocument(final_combined_doc,output_folder + '\\all_parts' + '.pdf','')
 
 def getTopHalf(doc:fitz.Document) -> list[fitz.Pixmap]:
     out = []
@@ -194,23 +211,17 @@ def findMatches(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
     '''
     # iterate over subfolders
     folders = []
+    part_dict = {}
     for path in folder_paths:
-        # print(path)
         folders = (reader.getSubFolders(path))
     for folder in folders:
         print(folder)
-    part_dict = {}
-    # get all files in listed folders
-    # for i in range(len(parts)):
-    #     parts[i] = matchPart(parts[i])
-    for folder in folders:
         files = reader.getSubFiles(folder, [],ignore_prefix= None, recursive=False)
         # print(files)
         if len(files) == 0: # no files found
             print("no pdf files found: " + os.path.basename(os.path.normpath(folder)))
             continue
         new_part_dict = createPartDictFromPaths(files,parts)
-        # printDict(new_part_dict)
         for k,v in new_part_dict.items():
             if k not in part_dict.keys():
                 part_dict[k] = []
