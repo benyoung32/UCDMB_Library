@@ -75,10 +75,9 @@ def getUniqueParts(parts: list[str]):
 def openPartFiles(unique_parts: list[str], part_filepaths: list[str]) -> dict:
     part_doc_dict = {}
     for part in unique_parts:
-        files = found_parts[part]
-        cleaned_files = [file for file in files if file != ERROR_PATH]
-        part_docs = reader.openDocuments(cleaned_files).values()
-        part_doc_dict[part] = part_docs
+        files = part_filepaths[part]
+        files = [file for file in files if file != ERROR_PATH]
+        part_doc_dict[part] = reader.openDocuments(files).values()
     return part_doc_dict
 
 def combinePartDocs(part_dict:dict[str, Document], output_folder: str) -> None:
@@ -139,10 +138,10 @@ def buildTopBottomDocument(parts: list[str], part_doc_dict: dict, ):
                             r = bot_rect
                         if top: final_combined_doc.new_page(width = w, height = h)
 
-
 def groupInstruments(parts: list[str]):
     instrument_groups = []
     group = []
+    unique_parts = getUniqueParts(parts)
     for p in unique_parts:
         if group == [] or p.split()[0] == group[0].split()[0]:
             group.append(p)
@@ -152,7 +151,8 @@ def groupInstruments(parts: list[str]):
     if group != []: instrument_groups.append(group)
     return instrument_groups
 
-
+def createCombinedDocument():
+    pass
 
 def main(folderlist: list[str], parts: list[str], output_folder:str, combine:bool = False, move:bool = False) -> None:
     '''
@@ -174,9 +174,8 @@ def main(folderlist: list[str], parts: list[str], output_folder:str, combine:boo
     if move: moveFiles(found_parts, output_folder)
     if not combine: return
     i = 0
-    instrument_groups = []
+    instrument_groups = groupInstruments(parts)
     print(instrument_groups)
-    fancy = True
     for group in instrument_groups:
         for j in range(len(folderlist)):
             for part in group:
@@ -202,7 +201,7 @@ def getTopHalf(doc:fitz.Document) -> list[fitz.Pixmap]:
 
 def findMatches(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
     '''
-    From a list of folders, folder_paths, and a list of parts
+    From a list of folders (folder_paths) and a list of parts
     find a match from each folder for each part in parts.
     :param folder_paths: list of folder paths to search in
     :param parts: list of parts to search for
