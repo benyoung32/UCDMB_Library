@@ -8,31 +8,12 @@ import json
 import os
 import argparse
 import sys
-
-if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-    # print('running in a PyInstaller bundle')
-    ALIAS_FILE = ".\\_internal\\alias.json"
-    SUBSTITUTION_FILE = '.\\_internal\\substitution.json'
-else:
-    # print('running in a normal Python process')
-    ALIAS_FILE = "alias.json"
-    SUBSTITUTION_FILE = 'substitution.json'
+from part.py import *
 
 ERROR_PATH = 'no_match' 
-ERROR_PART = 'nan 0'
-f = open(ALIAS_FILE)
-alias = json.load(f)
-f = open(SUBSTITUTION_FILE)
-subs = json.load(f)
-alias_flat = []# all alias words in list
-for k,v in alias.items():
-    for s in v:
-        alias_flat.append(s)
 folderlist = ""
 files = None
 
-PART_NUMBERS = ['1','2','3','4','5']
-PART_NUMBERS_FANCY = ['1st','2nd','3rd','4th','5th']
 REMOVED_CHARS = ['\\','/',':','.','_','-','bb','Bb','&','+','pdf']
 IGNORED_WORDS = ['full']
 
@@ -80,7 +61,7 @@ def openPartFiles(unique_parts: list[str], part_filepaths: list[str]) -> dict:
         part_doc_dict[part] = reader.openDocuments(files).values()
     return part_doc_dict
 
-def combinePartDocs(part_dict:dict[str, Document], output_folder: str) -> None:
+def combineAndSavePartDocs(part_dict:dict[str, Document], output_folder: str) -> None:
     for part, docs in part_dict.items():
         combined_doc = reader.combineDocuments(docs)
         part_name = part.replace('0', '').strip()
@@ -154,7 +135,26 @@ def groupInstruments(parts: list[str]):
 def createCombinedDocument():
     pass
 
-def main(folderlist: list[str], parts: list[str], output_folder:str, combine:bool = False, move:bool = False) -> None:
+def saveGroupJSON(instrument_groups: list[str], part_files: dict[str, str], 
+                  out_filepath = "groups.json") -> None:
+    output_dict = {}
+    for group in instrument_groups:
+        lead_instrument = group[0].split()[0]
+        output_dict[lead_instrument] = {}
+        for instrument in group:
+            files = part_files[instrument]
+            if type(files) is not list:
+                files = [files]
+            output_dict[lead_instrument][instrument] = files
+    json_str = json.dumps(output_dict, indent=4)
+    print(json_str)
+    f = open(out_filepath, "w")
+    f.write(json_str)
+    f.close()
+
+    return
+
+def main(folders: list[str], parts: list[str], output_folder:str, combine:bool = False, move:bool = False) -> None:
     '''
     Find all files corresponding to each part in parts in dir and its subdirs.
     Output results to output path, should be a folder. 
@@ -167,17 +167,18 @@ def main(folderlist: list[str], parts: list[str], output_folder:str, combine:boo
     '''
     final_combined_doc = fitz.Document()
     unique_parts = getUniqueParts(parts)
-    print(unique_parts)
-    found_parts = findMatches(folderlist, unique_parts)
-    part_doc_dict = openPartFiles(unique_parts, found_parts)
-    combinePartDocs(part_doc_dict, output_folder)
-    if move: moveFiles(found_parts, output_folder)
+    part_files = findMatches(folders, unique_parts)
+    part_doc_dict = openPartFiles(unique_parts, part_files)
+    combineAndSavePartDocs(part_doc_dict, output_folder)
+    if move: moveFiles(part_files, output_folder)
     if not combine: return
     i = 0
     instrument_groups = groupInstruments(parts)
     print(instrument_groups)
+    saveGroupJSON(instrument_groups, part_files)
+    return
     for group in instrument_groups:
-        for j in range(len(folderlist)):
+        for j in range(len(folders)):
             for part in group:
                 part_docs = list(part_doc_dict[part])
                 if j >= len(part_docs): break
@@ -212,11 +213,9 @@ def findMatches(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
     folders = []
     part_dict = {}
     for path in folder_paths:
-        folders = (reader.getSubFolders(path))
+        folders = reader.getSubFolders(path)
     for folder in folders:
-        print(folder)
         files = reader.getSubFiles(folder, [],ignore_prefix= None, recursive=False)
-        # print(files)
         if len(files) == 0: # no files found
             print("no pdf files found: " + os.path.basename(os.path.normpath(folder)))
             continue
@@ -278,96 +277,6 @@ def createPartDictFromPaths(paths:list[str], parts:list[str]) -> dict[str,str]:
         #     found_parts[part] = ERROR_PATH
     return found_parts # keep word as long as its not in all strings
 
-def getPartNameFromString(input:str) -> str:
-    '''
-    From string, split up string into words and search
-    for matching part name from alias. Works best on filepaths
-    :param input: input string
-    :return: returns found part name from within input string
-    '''
-    # first clean file name, remove seperators etc.
-    cleaned_input = os.path.basename(os.path.normpath(input))
-    cleaned_input = cleaned_input.replace('Piccolo-Flute','Flute')
-    for rm in REMOVED_CHARS:
-        cleaned_input = cleaned_input.replace(rm, ' ')
-        cleaned_input = cleaned_input.strip()
-    words = cleaned_input.split()
-    name_extra = ''
-    instrument = ''
-    part_number = ' 1'
-    for j in range(len(words)-1,-1,-1):
-        word = words[j].lower()
-        if word in IGNORED_WORDS: # ignored words
-            pass
-        elif word in ['saxophone', 'sax', 'bugle', 'drum', 'drums', 'horn', 'bc', 'tc']: # recombine "descriptor" words into preceding word
-            name_extra = ' ' + word
-        elif word in alias_flat: # make sure that words like saxophone or other identifying words make it through
-            instrument = word # make sure that the word gets through
-        elif word in PART_NUMBERS or word in PART_NUMBERS_FANCY: # combine part numbers into preceding word, e.g. [...'saxophone', '1'] -> [...,'saxophone 1', ...]
-            part_number = ' ' + word[0]
-    # print(''.join([instrument,name_extra,part_number]), input)
-    return matchPart(''.join([instrument,name_extra,part_number]))
-
-def matchPart(part:str, quiet:bool = False, pretty = False) -> str:
-    '''
-    Finds a matching standardized part name from input part 
-    using a part name alias
-    :param part: Input part name string
-    :param quiet: If true, do not print warning messages
-    :param pretty: If true, return part name in "prettier format",
-    e.g. hanging 0 is removed, words capitalized
-    :return: Returns matching part name, or ERROR_PART if 
-    no match could be found
-    '''
-    part = part.lower().strip()
-    part_name = ERROR_PART
-    if part == '':
-        return part_name
-    words = part.split()
-    words = [word for word in words if word not in ['in','eb','bb','full','ab','c','f']]
-    part_number = getPartNumber(part)
-    # print(words)
-    # if words[-1] in ['n/a']:
-    name = ' '.join(words[0:-1]) 
-    for p, names in alias.items():
-        for n in names:
-            if name == n:
-                part_name = p
-                break
-    if part_name == ERROR_PART:
-        # double check all words for looser match
-        for word in words:
-            for p, names in alias.items():
-                for n in names:
-                    if word == n:
-                        part_name = p
-                        break
-                else:
-                    continue
-            else:
-                continue
-    # still nothing found
-    if part_name == ERROR_PART:
-        if not quiet:
-            print('NO PART NAME FOUND FOR:', part)
-        return ERROR_PART
-    if pretty:
-        if str(part_number) == '0':
-            pnumstr = ''
-        else:
-            pnumstr = str(part_number)
-        return (' '.join([part_name, pnumstr])).title()
-            
-    else:
-        return ' '.join([part_name, str(part_number)])
-
-def getPartNumber(partname:str) -> str:
-    for c in partname[::-1]:
-        if c in PART_NUMBERS:
-            return c
-    # if nothing found, return 0
-    return '0'
-
 def readFile(filepath:str) -> list[str]:
     '''
     Open and read input filepath line by line into a list
@@ -409,11 +318,11 @@ if __name__ == "__main__":
         folders = [openFolder()]
     else:
         folders = readFile(folderlist)
-    print(folders)
+    # print(folders)
     for i in range(len(partlist)):
         partlist[i] = matchPart(partlist[i])
     partlist = [part for part in partlist if part != ERROR_PART]
     # partlist.sort()
-    print(partlist)
+    # print(partlist)
     main(folders, partlist, outputfolder, combine, move)
     # init("C:\\Users\\benyo\\Downloads\\folder\\Roaring 20's", parts)
