@@ -10,38 +10,25 @@ import tkinter as tk
 import cv2 as cv
 import math
 from itertools import combinations
+from my_file_utils import *
+
+MAX_AVERAGE_DISTANCE = 100
+FUZZY_THRESHOLD = 0.02
+# MIN_FOUND_VAL = 0.47
 
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     # print('running in a PyInstaller bundle')
     frozen = True
-
 else:
     # print('running in a normal Python process')
     frozen = False
     from matplotlib import pyplot as plt
     import numpy as np
     import pytesseract
-MAX_AVERAGE_DISTANCE = 100
-FUZZY_THRESHOLD = 0.02
-# MIN_FOUND_VAL = 0.47
 
-def printDict(dict):
-    for k,v in dict.items():
-        print(k, end = ':\n')
-        if v is list:
-            for n in v:
-                print(n)
-        else:
-            print(v)
 
 def main(filename:str):
     pass
-
-def save_list(l:list, outfilepath:str) -> None:
-    page_file = open(outfilepath, 'w+')
-    for b in l:
-        page_file.write(str(b) + '\n')
-    page_file.close()
 
 def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = False, 
               pages_override: list[bool] = None, rotate = None,from_part:bool = False,

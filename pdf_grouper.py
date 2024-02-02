@@ -31,6 +31,7 @@ for k,v in alias.items():
 folderlist = ""
 files = None
 
+DRUMS = [matchPartNameAlias(drum) for drum in ['snare','quads','cymbals','basses']]
 PART_NUMBERS = ['1','2','3','4','5']
 PART_NUMBERS_FANCY = ['1st','2nd','3rd','4th','5th']
 REMOVED_CHARS = ['\\','/',':','.','_','-','bb','Bb','&','+','pdf']
@@ -85,7 +86,7 @@ def combinePartDocs(part_dict:dict[str, Document], output_folder: str) -> None:
     for part, docs in part_dict.items():
         combined_doc = reader.combineDocuments(docs)
         part_name = part.replace('0', '').strip()
-        part_name = matchPart(part_name,True,True).strip()
+        part_name = matchPartNameAlias(part_name,True,True).strip()
         new_filepath = output_folder + '\\' + part_name + ".pdf"
         reader.saveDocument(combined_doc, new_filepath, '', close = False)
 
@@ -126,7 +127,7 @@ def buildTopBottomDocument(parts: list[str], part_doc_dict: dict, ):
     for group in instrument_groups:
         for j in range(len(folderlist)):
             for part in group:
-                images = getTopHalf(part_docs[j])
+                images = topHalfPixmaps(part_docs[j])
                 for p in range(parts.count(part)):
                     # print(p)
                     for img in images:
@@ -139,7 +140,6 @@ def buildTopBottomDocument(parts: list[str], part_doc_dict: dict, ):
                             r = bot_rect
                         if top: final_combined_doc.new_page(width = w, height = h)
 
-
 def groupInstruments(parts: list[str]):
     instrument_groups = []
     group = []
@@ -151,8 +151,6 @@ def groupInstruments(parts: list[str]):
             group = [p]
     if group != []: instrument_groups.append(group)
     return instrument_groups
-
-
 
 def main(folderlist: list[str], parts: list[str], output_folder:str, combine:bool = False, move:bool = False) -> None:
     '''
@@ -168,7 +166,7 @@ def main(folderlist: list[str], parts: list[str], output_folder:str, combine:boo
     final_combined_doc = fitz.Document()
     unique_parts = getUniqueParts(parts)
     print(unique_parts)
-    found_parts = findMatches(folderlist, unique_parts)
+    found_parts = findPartFiles(folderlist, unique_parts)
     part_doc_dict = openPartFiles(unique_parts, found_parts)
     combinePartDocs(part_doc_dict, output_folder)
     if move: moveFiles(found_parts, output_folder)
@@ -191,7 +189,7 @@ def main(folderlist: list[str], parts: list[str], output_folder:str, combine:boo
                         final_combined_doc.insert_pdf(part_docs[j])
     reader.saveDocument(final_combined_doc,output_folder + '\\all_parts' + '.pdf','')
 
-def getTopHalf(doc:fitz.Document) -> list[fitz.Pixmap]:
+def topHalfPixmaps(doc:fitz.Document) -> list[fitz.Pixmap]:
     out = []
     for page in doc:
         r = page.bound()
@@ -200,7 +198,7 @@ def getTopHalf(doc:fitz.Document) -> list[fitz.Pixmap]:
         out.append(page.get_pixmap(dpi=300))
     return out 
 
-def findMatches(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
+def findPartFiles(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
     '''
     From a list of folders, folder_paths, and a list of parts
     find a match from each folder for each part in parts.
@@ -307,9 +305,9 @@ def getPartNameFromString(input:str) -> str:
         elif word in PART_NUMBERS or word in PART_NUMBERS_FANCY: # combine part numbers into preceding word, e.g. [...'saxophone', '1'] -> [...,'saxophone 1', ...]
             part_number = ' ' + word[0]
     # print(''.join([instrument,name_extra,part_number]), input)
-    return matchPart(''.join([instrument,name_extra,part_number]))
+    return matchPartNameAlias(''.join([instrument,name_extra,part_number]))
 
-def matchPart(part:str, quiet:bool = False, pretty = False) -> str:
+def matchPartNameAlias(part:str, quiet:bool = False, pretty = False) -> str:
     '''
     Finds a matching standardized part name from input part 
     using a part name alias
@@ -384,8 +382,6 @@ def readFile(filepath:str) -> list[str]:
         file.close()
     return reqs
 
-DRUMS = [matchPart(drum) for drum in ['snare','quads','cymbals','basses']]
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('folder list',type=str,
@@ -412,7 +408,7 @@ if __name__ == "__main__":
         folders = readFile(folderlist)
     print(folders)
     for i in range(len(partlist)):
-        partlist[i] = matchPart(partlist[i])
+        partlist[i] = matchPartNameAlias(partlist[i])
     partlist = [part for part in partlist if part != ERROR_PART]
     # partlist.sort()
     print(partlist)

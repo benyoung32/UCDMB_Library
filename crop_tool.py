@@ -26,7 +26,7 @@ def getPagePILImage(parent, page:fitz.Page, dpi = 300, resize:fitz.Point = None)
         parent.page_image = parent.page_image.resize(size=(int(width), int(height)))
     return parent.page_image
 
-def getPageScaledImage(parent, page: fitz.Page, dpi = 300, resize:fitz.Point = None) -> tk.PhotoImage:
+def createPageScaledImage(parent, page: fitz.Page, dpi = 300, resize:fitz.Point = None) -> tk.PhotoImage:
     my_image = img = ImageTk.PhotoImage(getPagePILImage(parent, page,dpi, resize),master=parent)
     return my_image
 
@@ -65,13 +65,13 @@ class CropTool(tk.Toplevel):
         
         self.pdf_canvas.grid(row=0,column=0,sticky='ew',padx=PADDING,pady=PADDING)
         # preview_canvas.grid(row=0,column=1,sticky='ew',padx=PADDING,pady=PADDING)
-        self.preview_button = tk.Button(self.button_frame, command=self.createPreview,
+        self.preview_button = tk.Button(self.button_frame, command=self.createPreviewWindow,
                                 width = 10, height = 1,text='Create Preview')
         self.export_button = tk.Button(self.button_frame, command=self.printSettingsString,
                                 width = 10, height = 1,text='Export Settings')
-        self.crop_folder_button = tk.Button(self.button_frame, command=self.cropFolder,
+        self.crop_folder_button = tk.Button(self.button_frame, command=self.applyCropToFolder,
                                 width = 20, height = 1, text = 'Apply to folder')
-        self.crop_file_button = tk.Button(self.button_frame, command=self.cropFile, width = 20, height = 1,
+        self.crop_file_button = tk.Button(self.button_frame, command=self.applyCropToFile, width = 20, height = 1,
                                           text = 'Apply to file')
         self.rotate_entry = EntryWithLabel(self.button_frame,'Rotate?','')
         self.fullsize_box = CheckButtonWithLabel(self.button_frame, 
@@ -93,7 +93,7 @@ class CropTool(tk.Toplevel):
         self.twoinone_box.grid(row=4,column=0,sticky = 'nwes',columnspan=2)
         self.rightalign_box.grid(row=5,column=0,sticky = 'nwes',columnspan=2)
         self.main_frame.pack(padx=PADDING,pady=PADDING,fill='none')
-        myimage = getPageScaledImage(self,page,resize=page.bound().br)
+        myimage = createPageScaledImage(self,page,resize=page.bound().br)
         self.pdf_canvas.create_image(2,2,image=myimage,anchor='nw')
         self.tl = fitz.Point(2,2)
         self.br = copy(self.page_br)
@@ -102,14 +102,14 @@ class CropTool(tk.Toplevel):
         
         self.pdf_canvas.bind('<Button-1>', self.onClick)
         self.pdf_canvas.focus_set()
-        self.after(30,self.checkKeys)
+        self.after(30,self.updateKeyboardInput)
         # self.focus_force()
         # self.grab_set()
         # print(self.focus_get())
         self.bind("<Destroy>", self.kill_root)
         self.mainloop()
 
-    def checkKeys(self):
+    def updateKeyboardInput(self):
         tl, br = self.tl, self.br
         key_string = self.keyvar.get()
         # print(key_string)
@@ -141,7 +141,7 @@ class CropTool(tk.Toplevel):
             else:
                 br.y = br.y + scale
         self.drawCropBox()
-        self.after(30,self.checkKeys)
+        self.after(30,self.updateKeyboardInput)
     
     def onClick(self, event):
         # print('beep')
@@ -156,9 +156,8 @@ class CropTool(tk.Toplevel):
         self.grab_set()
         self.focus_get()
         return answer.name
-    # get page sized tk.PhotoImage from a fitz.Page 
 
-    # draw current cropbox onto pdf_canvas, replacing previous
+    # draw current cropbox onto pdf_canvas, replacing previous21                                                                                                                                                                                                                                                                                                                                                                                                FD
     def drawCropBox(self) -> None:
         if (self.CROPBOX_ID):
             self.pdf_canvas.delete(self.CROPBOX_ID)
@@ -195,15 +194,14 @@ class CropTool(tk.Toplevel):
     def printSettingsString(self) -> None:
         print(self.getSettingsString())
     
-    # apply current settings to the folder where the sample came from
-    def cropFolder(self) -> None:
-        # print(path)
+    def applyCropToFolder(self) -> None:
+        ''' apply current settings to the folder where the sample came from '''
         folder= os.path.dirname(self.path)
         files = reader.getSubFiles(folder)
         # print(files)
         reader.processDocs(files, reader.prefix, **self.getSettingsDict())
     
-    def cropFile(self) -> None:
+    def applyCropToFile(self) -> None:
         reader.processDocs(self.path, reader.prefix, **self.getSettingsDict())
     # get rotation from entry box, sanitize input
     def getRotation(self) -> int:
@@ -218,7 +216,7 @@ class CropTool(tk.Toplevel):
             rotation = 0
         return rotation
 
-    def createPreview(self) -> None:
+    def createPreviewWindow(self) -> None:
         args = self.getSettingsDict()
         doc = reader.openDocuments(self.path,size='a4')[self.path]
         # alter document using settings 
@@ -228,24 +226,6 @@ class CropTool(tk.Toplevel):
         new_br = newdoc[0].bound().br
         # create new window to show altered document
         preview_window = PDFWindow(self,newdoc,'Crop Preview')
-    
-    def updateRotation(self) -> None:
-        # global main_frame, pdf_canvas, rotate_var,page_image,page_br
-        # # rotate pdf_canvas width and height, repack gui elements
-        # rotation = rotate_var.get()
-        # pdf_canvas.delete('all')
-        # if rotation == 90:
-        #     pdf_canvas.config(width=page_br.y,height=page_br.x)
-        #     rotated = page_image.rotate(90)
-        # else:
-        #     pdf_canvas.config(width=page_br.x,height=page_br.y)
-        #     rotated = page_image.rotate(0)
-        # # rotated.show()
-        # new_photoimage = ImageTk.PhotoImage(rotated)
-        # new_photoimage.
-        # pdf_canvas.create_image(2,2,image=new_photoimage,anchor='nw')
-        # self.update()
-        self.drawCropBox()
 
     def kill_root(self, event):
         if event.widget == self and self.master.winfo_exists():
@@ -349,7 +329,7 @@ class PDFCanvas(tk.Frame):
     def updatePage(self, page_number:int) -> None:
         if not self.page_images[page_number]:
             page = self.doc[page_number]
-            self.page_images[page_number] = getPageScaledImage(self, page,dpi=100,resize=page.bound().br)
+            self.page_images[page_number] = createPageScaledImage(self, page,dpi=100,resize=page.bound().br)
         img = self.page_images[page_number]
         self.pagenum = page_number
         self.updateImage(img)
@@ -366,7 +346,7 @@ class PDFCanvas(tk.Frame):
 
     def preloadImages(self) -> None:
         for i, page in enumerate(self.doc):
-            self.page_images[i] = getPageScaledImage(self, page,dpi=100,resize=page.bound().br)
+            self.page_images[i] = createPageScaledImage(self, page,dpi=100,resize=page.bound().br)
     
 
     def clear(self) -> None:

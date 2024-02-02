@@ -17,7 +17,7 @@ def main(filename = 'pdfs', **kwargs) -> None:
     files = getSubFiles(filename)
     print('found:')
     print(files)
-    processDocs(files, **kwargs)
+    openCropSaveDocs(files, **kwargs)
 
 def getSubFiles(paths: list[str], files:list[str] = [], 
                 ignore_prefix:str = prefix, recursive:bool = True) -> list[str]:
@@ -66,7 +66,7 @@ def getSubFolders(folderpaths: list[str], folders: list[str] = []) -> list[str]:
             print('invalid path')
     return folders
 
-def processDocs(filepaths: list[str], prefix:str = prefix, 
+def openCropSaveDocs(filepaths: list[str], prefix:str = prefix, 
                 auto_expand:bool = True, **kwargs) -> list:
     '''
     Primarily wrapper for :func:`pdf_reader.duplicateAndScale`
@@ -139,11 +139,6 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
             croprect = fitz.Rect(left_mg, top_mg, r.x1 - right_mg, r.y1 / 2 - bottom_mg)
         else:
             croprect = fitz.Rect(r.x1 / 2 - top_mg, bottom_mg, r.x1 - right_mg, r.y1 - left_mg)
-        # print(margins)
-        # print(page.mediabox)
-        # print(croprect)
-        # page.add_rect_annot(croprect)
-        # src.save('altered.pdf')
         if two_in_one: # for duplicating ones that are already half size and two pages
             page.set_cropbox(croprect)
             src_pix = page.get_pixmap(dpi = 300)
@@ -160,22 +155,24 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
             insertImage(new_page, src_pix, expand, rotate,right_align)
     return doc 
 
-def insertImage(page, src_pix, expand = False, 
-                rotate = 0, right_align = True, keep_proportion = True) -> None:
+def insertFullPageImage(page, src_pix) -> None:
     r = page.bound()
-    if expand:
-        page.set_rotation(90)
-        page.insert_image(r, pixmap= src_pix, rotate = 90)
+    page.set_rotation(90)
+    page.insert_image(r, pixmap= src_pix, rotate = 90)
+
+def insertImage(page, src_pix, right_align = True, **kwargs) -> None:
+    r = page.bound
+    top = fitz.Rect(0, 5, r.x1 * CW, r.y1 / 2 - 5)
+    bottom = fitz.Rect(0, r.y1 / 2 + 5, r.x1 * CW, r.y1 - 5)
+    if not right_align:
+        page.insert_image(fitz.Rect(0, 5, r.x1 * CW, r.y1 / 2 - 5),
+            pixmap= src_pix, **kwargs)
+        page.insert_image(fitz.Rect(0, r.y1 / 2 + 5, r.x1 * CW, r.y1 - 5), 
+            pixmap= src_pix, **kwargs)
     else:
-        if not right_align:
-            page.insert_image(fitz.Rect(0, 5, r.x1 * CW, r.y1 / 2 - 5),
-                pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
-            page.insert_image(fitz.Rect(0, r.y1 / 2 + 5, r.x1 * CW, r.y1 - 5), 
-                pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
-        else:
-            page.insert_image(fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1 / 2),
-                pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
-            page.insert_image(fitz.Rect(r.x1 * (1 - CW), r.y1 / 2, r.x1, r.y1), 
+        page.insert_image(fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1 / 2),
+            pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
+        page.insert_image(fitz.Rect(r.x1 * (1 - CW), r.y1 / 2, r.x1, r.y1), 
                 pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
 
 def rightAlign(doc: fitz.Document) -> fitz.Document:
