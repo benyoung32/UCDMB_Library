@@ -14,7 +14,11 @@
         "piccs"
     ],
     "clarinet": [
+        "Bb clarinet",
+        "bb clarinet",
         "clarinet",
+        "clarinets",
+        "nets",
         "net"
     ],
     "alto saxophone": [
@@ -37,6 +41,8 @@
         "bari saxophone"
     ],
     "trumpet": [
+        "Bb trumpet",
+        "bb trumpet",
         "trumpet",
         "trumpets",
         "tpt",
@@ -56,6 +62,7 @@
     ],
     "baritone bc": [
         "baritone",
+        "bc baritone",
         "baritonebc",
         "baritone horn",
         "euphonium",

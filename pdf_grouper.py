@@ -1,6 +1,5 @@
 from math import ceil
 import shutil
-from xml.dom.minidom import Document
 import pdf_reader as reader
 import tkinter as tk
 import fitz
@@ -8,46 +7,19 @@ import json
 import os
 import argparse
 import sys
-from part.py import *
+import my_file_utils as my_file
+from part import *
 
 ERROR_PATH = 'no_match' 
 folderlist = ""
 files = None
 
-DRUMS = [matchPartNameAlias(drum) for drum in ['snare','quads','cymbals','basses']]
+DRUMS = [Part(drum) for drum in ['snare','quads','cymbals','basses']]
 PART_NUMBERS = ['1','2','3','4','5']
 PART_NUMBERS_FANCY = ['1st','2nd','3rd','4th','5th']
-REMOVED_CHARS = ['\\','/',':','.','_','-','bb','Bb','&','+','pdf']
 IGNORED_WORDS = ['full']
 
-def openFolder() -> str: 
-    '''
-    Open a system file dialog prompting user to select a folder
-    :return: Filepath to selected folder
-    '''
-    # get file info
-    answer = tk.filedialog.askdirectory(
-            initialdir=os.getcwd(),
-            title="Please select a folder:")
-    # return filepath
-    return answer
-
-def printDict(dict:dict):
-    '''
-    For each key in input dict, print each corresponding value 
-    on its own line
-    :param dict: Dict to print 
-    :return: None
-    '''
-    for k,v in dict.items():
-        print(k, end = ':\n')
-        if v is list:
-            for n in v:
-                print(n)
-        else:
-            print(v)
-
-def getUniqueParts(parts: list[str]):
+def getUniqueParts(parts: list[Part]):
     unique_parts = list(set(parts))
     unique_parts.sort()
     # insert part to the back
@@ -56,23 +28,27 @@ def getUniqueParts(parts: list[str]):
     unique_parts.extend(drum_parts)
     return unique_parts
 
-def openPartFiles(unique_parts: list[str], part_filepaths: list[str]) -> dict:
+def openPartFiles(unique_parts: list[Part], part_filepaths: dict[Part, str]) -> dict:
     part_doc_dict = {}
     for part in unique_parts:
         files = part_filepaths[part]
         files = [file for file in files if file != ERROR_PATH]
-        part_doc_dict[part] = reader.openDocuments(files).values()
+        part_doc_dict[part] = reader.openDocuments(files)
     return part_doc_dict
 
-def combineAndSavePartDocs(part_dict:dict[str, Document], output_folder: str) -> None:
-    for part, docs in part_dict.items():
-        combined_doc = reader.combineDocuments(docs)
-        part_name = part.replace('0', '').strip()
-        part_name = matchPartNameAlias(part_name,True,True).strip()
-        new_filepath = output_folder + '\\' + part_name + ".pdf"
-        reader.saveDocument(combined_doc, new_filepath, '', close = False)
+def combineAndSavePartDocs(instrument_groups: list[list[Part]], part_dict:dict[Part, list[fitz.Document]], output_folder: str) -> None:
+    for group in instrument_groups:
+        for part in group:
+            all_docs = []
+            docs = part_dict[part]
+            for doc in docs:
+                if doc not in all_docs: all_docs.append(doc)
+            if (all_docs == []): continue
+            combined_doc = reader.combineDocuments(all_docs)
+            new_filepath = output_folder + '\\' + str(part) + ".pdf"
+            reader.saveDocument(combined_doc, new_filepath, '', close = False)
 
-def moveFiles(parts: list[str], part_file_dict: dict[str, str], output_folder:str):
+def moveFiles(parts: list[Part], part_file_dict: dict[Part, str], output_folder:str):
     for p in parts:
         files = part_file_dict[p]
         files = [file for file in files if file != ERROR_PATH]
@@ -86,48 +62,88 @@ def moveFiles(parts: list[str], part_file_dict: dict[str, str], output_folder:st
         for file in files:
             shutil.copy(file, new_folder + '\\' + os.path.basename(file))
 
-def buildTopBottomDocument(parts: list[str], part_doc_dict: dict, ):
-    final_page_count = 0
-    unique_parts = getUniqueParts(parts)
-    for part in unique_parts:
-        if part in DRUMS: continue
-        for part_doc in part_doc_dict[part]:
-            final_page_count += 0.5 * part_doc.page_count * parts.count(part)
-    final_page_count = ceil(final_page_count)
+def saveGroupJSON(parts: list[Part], part_files: dict[Part, str], 
+                  out_filepath = "groups.json") -> None:
+    output_dict = {}
+    groups = {}
+    instrument_groups = groupInstruments(parts)
+    for group in instrument_groups:
+        lead_instrument = group[0].instrument
+        groups[lead_instrument] = {}
+        for part in group:
+            files = part_files[part]
+            if type(files) is not list:
+                files = [files]
+            groups[lead_instrument][str(part)] = {}
+            groups[lead_instrument][str(part)]['files'] = files
+            groups[lead_instrument][str(part)]['count'] = parts.count(part)
+    output_dict['groups'] = groups
+    max_count = 0
+    for v in part_files.values():
+        max_count = max(max_count, len(v))
+    output_dict['song count'] = max_count
+    json_str = json.dumps(output_dict, indent=4)
+    print(json_str)
+    f = open(out_filepath, "w")
+    f.write(json_str)
+    f.close()
+    return
+
+def buildTopBottomDocument(json_path: str) -> fitz.Document:
+    f = open(json_path)
+    part_json = json.load(f)
+    all_part_info = []
+    for group in part_json['groups'].values():
+        for part, values in group.items():
+            docs = reader.openDocuments(values['files'])
+            docs = [doc for doc in docs if doc != ERROR_PATH]
+            all_part_info.append((Part(part) in DRUMS, values['count'], docs))
+            print(Part(part),(Part(part) in DRUMS, values['count'], docs))
+    
+    total_pages = 0
+    for part_info in all_part_info:
+        if not part_info[0]:
+            for doc in part_info[2]:
+                total_pages += part_info[1] * doc.page_count * 0.5
+    total_pages = ceil(total_pages)
+    print(total_pages)
+
+    final_doc = fitz.Document()
     w, h = fitz.paper_rect('letter').width, fitz.paper_rect('letter').height
-    final_combined_doc.new_page(width = w, height = h)
-    print(final_page_count, len(parts))
-    page = 0
-    top = True
-    top_rect = final_combined_doc[0].bound()
+    final_doc.new_page(width = w, height = h)
+    
+    top_rect = final_doc[0].bound()
+    bot_rect = final_doc[0].bound()
     top_rect.y1 = top_rect.y1 / 2
-    bot_rect = final_combined_doc[0].bound()
     bot_rect.y0 = bot_rect.y1 / 2
     r = top_rect
-    for _ in range(parts.count(part)): 
-        final_combined_doc.insert_pdf(part_docs[j])
-    for group in instrument_groups:
-        for j in range(len(folderlist)):
-            for part in group:
-                images = topHalfPixmaps(part_docs[j])
-                for p in range(parts.count(part)):
-                    # print(p)
-                    for img in images:
-                        final_combined_doc[page].insert_image(r, pixmap=img)
-                        print(part, page)
-                        page += 1
-                        if page > final_page_count - 1:
-                            top = False
-                            page = 0
-                            r = bot_rect
-                        if top: final_combined_doc.new_page(width = w, height = h)
+    page = 0
+    top = True
+    for part_info in all_part_info: 
+        full_page = part_info[0]
+        for _ in range(part_info[1]):
+            for doc in part_info[2]:
+                if full_page:
+                    final_doc.insert_pdf(doc)
+                    continue
+                images = topHalfPixmaps(doc)
+                for img in images:
+                    print(page, doc)
+                    final_doc[page].insert_image(r, pixmap=img)
+                    page += 1
+                    if page > total_pages - 1:
+                        top = False
+                        page = 0
+                        r = bot_rect
+                    if top: final_doc.new_page(width = w, height = h)
+    return final_doc
 
-def groupInstruments(parts: list[str]):
+def groupInstruments(parts: list[Part]):
     instrument_groups = []
     group = []
     unique_parts = getUniqueParts(parts)
     for p in unique_parts:
-        if group == [] or p.split()[0] == group[0].split()[0]:
+        if group == [] or p.instrument == group[0].instrument:
             group.append(p)
         else:
             instrument_groups.append(group)
@@ -138,26 +154,16 @@ def groupInstruments(parts: list[str]):
 def createCombinedDocument():
     pass
 
-def saveGroupJSON(instrument_groups: list[str], part_files: dict[str, str], 
-                  out_filepath = "groups.json") -> None:
-    output_dict = {}
-    for group in instrument_groups:
-        lead_instrument = group[0].split()[0]
-        output_dict[lead_instrument] = {}
-        for instrument in group:
-            files = part_files[instrument]
-            if type(files) is not list:
-                files = [files]
-            output_dict[lead_instrument][instrument] = files
-    json_str = json.dumps(output_dict, indent=4)
-    print(json_str)
-    f = open(out_filepath, "w")
-    f.write(json_str)
-    f.close()
+def combineUniqueParts(parts: list[Part], part_doc_dict: dict[Part, str], output = 'all parts.pdf'):
+    unique_parts = getUniqueParts(parts)
+    final_doc = fitz.Document()
+    for part in unique_parts:
+        part_docs = list(part_doc_dict[part])
+        for doc in part_docs:
+            final_doc.insert_pdf(doc)
+    reader.saveDocument(final_doc,output, '')
 
-    return
-
-def main(folders: list[str], parts: list[str], output_folder:str, combine:bool = False, move:bool = False) -> None:
+def main(folders: list[str], parts: list[Part], output_folder:str, combine:bool = False, move:bool = False) -> None:
     '''
     Find all files corresponding to each part in parts in dir and its subdirs.
     Output results to output path, should be a folder. 
@@ -170,40 +176,29 @@ def main(folders: list[str], parts: list[str], output_folder:str, combine:bool =
     '''
     final_combined_doc = fitz.Document()
     unique_parts = getUniqueParts(parts)
-    part_files = findMatches(folders, unique_parts)
+    part_files = findPartFiles(folders, unique_parts)
     part_doc_dict = openPartFiles(unique_parts, part_files)
-    combineAndSavePartDocs(part_doc_dict, output_folder)
+    combineAndSavePartDocs(groupInstruments(unique_parts), part_doc_dict, output_folder)
     if move: moveFiles(part_files, output_folder)
-    if not combine: return
-    i = 0
-    instrument_groups = groupInstruments(parts)
-    print(instrument_groups)
-    saveGroupJSON(instrument_groups, part_files)
-    return
-    for group in instrument_groups:
-        for j in range(len(folders)):
-            for part in group:
-                part_docs = list(part_doc_dict[part])
-                if j >= len(part_docs): break
-                else: 
-                    # drums take up whole page, while other parts take half
-                    if part in DRUMS: count = parts.count(part)
-                    else: count = ceil(parts.count(part) / 2)
-                    # for each requested song, put each part count times
-                    for i in range(count):
-                        final_combined_doc.insert_pdf(part_docs[j])
-    reader.saveDocument(final_combined_doc,output_folder + '\\all_parts' + '.pdf','')
+    json_output = output_folder + '\\groups.json'
+    saveGroupJSON(parts, part_files, json_output)
+    combineUniqueParts(unique_parts, part_doc_dict, output_folder + '\\all_parts' + '.pdf')
+    final = buildTopBottomDocument(json_output)
+    reader.saveDocument(final, output_folder + '\\all_parts' + '.pdf', '')
 
-def topHalfPixmaps(doc:fitz.Document) -> list[fitz.Pixmap]:
+def topHalfPixmaps(docs: list[fitz.Document]) -> list[fitz.Pixmap]:
     out = []
-    for page in doc:
-        r = page.bound()
-        r.y1 /= 2
-        page.set_cropbox(r)
-        out.append(page.get_pixmap(dpi=300))
+    if type(docs) is not list:
+        docs = [docs]
+    for doc in docs:
+        for page in doc:
+            r = page.bound()
+            r.y1 /= 2
+            page.set_cropbox(r)
+            out.append(page.get_pixmap(dpi=300))
     return out 
 
-def findPartFiles(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
+def findPartFiles(folder_paths:list[str],parts:list[Part]) -> dict[Part,str]:
     '''
     From a list of folders (folder_paths) and a list of parts
     find a match from each folder for each part in parts.
@@ -212,9 +207,9 @@ def findPartFiles(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
     :return: Returns a dictionary with a key for each part with value
     containing list of found parts 
     '''
-    # iterate over subfolders
     folders = []
     part_dict = {}
+    # iterate over subfolders
     for path in folder_paths:
         folders = reader.getSubFolders(path)
     for folder in folders:
@@ -222,18 +217,15 @@ def findPartFiles(folder_paths:list[str],parts:list[str]) -> dict[str,str]:
         if len(files) == 0: # no files found
             print("no pdf files found: " + os.path.basename(os.path.normpath(folder)))
             continue
-        new_part_dict = createPartDictFromPaths(files,parts)
-        for k,v in new_part_dict.items():
+        for k,v in createPartDictFromPaths(files,parts).items():
             if k not in part_dict.keys():
                 part_dict[k] = []
-            if type(v) is list:
-                for subpath in v:
-                    part_dict[k].append(subpath)
-            else:
-                part_dict[k].append(v)
+            if type(v) is list: 
+                for subpath in v: part_dict[k].append(subpath)
+            else: part_dict[k].append(v)
     return part_dict
 
-def createPartDictFromPaths(paths:list[str], parts:list[str]) -> dict[str,str]:
+def createPartDictFromPaths(paths:list[str], parts:list[Part]) -> dict[Part,str]:
     '''
     From list of filepaths, paths, matches each path to a part name,
     searching for parts in parts list
@@ -242,58 +234,27 @@ def createPartDictFromPaths(paths:list[str], parts:list[str]) -> dict[str,str]:
     :return: Returns a dict with a key for each part in parts, 
     with a list of matching paths as the value
     '''
-    part_dict = {}
-    for i in range(len(paths)):
-        part_name = getPartNameFromString(paths[i])
-        part_dict[part_name] = paths[i]
+    part_path_dict = {}
     found_parts = {}
+    for path in paths:
+        part = getPartFromFilepath(path)
+        part_path_dict[part] = path
     for part in parts:
-        part_number = part[-1]
-        part_name = part[0:-2]
         # no part number specified, return all parts
-        if part_number == str(0):
-            found_parts[part] = []
-            for n in [0,*PART_NUMBERS]:
-                try_part = part_name + " " + str(n)
-                if try_part in part_dict.keys():
-                    found_parts[part].append(part_dict[try_part]) 
-            if found_parts[part] == []:
-                print('|| WARNING || no file found for:', part,
-                      'in folder:','\"' + os.path.dirname(os.path.normpath(paths[0])) + '\"')
-                found_parts[part] = ERROR_PATH
-        else: # return only part specified
-            if part in part_dict.keys():
-                found_parts[part] = part_dict[part]
-            else:
-                while int(part_number) > 0:
-                    try_part = part_name + ' ' + part_number
-                    try:
-                        found_parts[part] = part_dict[try_part]
-                        break
-                    except:
-                        part_number = str(int(part_number) - 1)
-                if part_number == '0':
-                    print('|| WARNING || no file found for:', part,
-                      'in folder:','\"' + os.path.dirname(os.path.normpath(paths[0]) + '\"'))
-                    found_parts[part] = ERROR_PATH
-        # if found_parts[part] == []:
-        #     found_parts[part] = ERROR_PATH
-    return found_parts # keep word as long as its not in all strings
-
-def readFile(filepath:str) -> list[str]:
-    '''
-    Open and read input filepath line by line into a list
-    :param filepath: file to read
-    :return: A list containing each line of the file at filepath
-    '''
-    reqs = []
-    with open(filepath) as file:
-        while line := file.readline():
-            line = line.strip()
-            line = line.strip("\'\"")
-            reqs.append(line.strip())
-        file.close()
-    return reqs
+        found_parts[part] = []
+        if part.number == str(0): search = [0, *PART_NUMBERS]
+        else: search = range(int(part.number), 0-1, -1)
+        for n in search:
+            try_part = Part(part.instrument + " " + str(n))
+            if try_part in part_path_dict.keys():
+                found_parts[part].append(part_path_dict[try_part]) 
+                if not part.number == str(0): break
+        # nothing was found
+        if found_parts[part] == []:
+            print('|| WARNING || no file found for:', part,
+                    'in folder:','\"' + os.path.dirname(os.path.normpath(paths[0])) + '\"')
+            found_parts[part] = ERROR_PATH
+    return found_parts
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(sys.argv[0])
@@ -312,18 +273,14 @@ if __name__ == "__main__":
                         help = 'Combine found files into one file')
     parser.add_argument('-m',dest = 'move',action='store_true',
                         help= 'Copy found files into one folder per part')
-    # print(parser.parse_args())
     folderlist, partlist, outputfolder, combine, move = vars(parser.parse_args()).values()
-    partlist = readFile(partlist)
+    partlist = my_file.readFile(partlist)
     if folderlist in ['p','prompt']:
         folders = [openFolder()]
     else:
-        folders = readFile(folderlist)
-    # print(folders)
+        folders = my_file.readFile(folderlist)
     for i in range(len(partlist)):
-        partlist[i] = matchPartNameAlias(partlist[i])
+        partlist[i] = Part(partlist[i])
     partlist = [part for part in partlist if part != ERROR_PART]
-    # partlist.sort()
-    # print(partlist)
     main(folders, partlist, outputfolder, combine, move)
     # init("C:\\Users\\benyo\\Downloads\\folder\\Roaring 20's", parts)

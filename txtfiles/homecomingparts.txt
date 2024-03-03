@@ -4,19 +4,12 @@ Alto Saxophone 1st
 Alto Saxophone 1st
 Alto Saxophone 2nd
 Alto Saxophone 1st
-Alto Saxophone 1st
 Alto Saxophone 2nd
 Alto Saxophone 2nd
 Alto Saxophone 2nd
 Alto Saxophone 1st
-Alto Saxophone 2nd
-Alto Saxophone 1st
-Alto Saxophone 2rd
 Alto Saxophone 1st
 Alto Saxophone 1st
-Alto Saxophone 1st
-Baritone N/A
-Baritone N/A
 Baritone N/A
 Baritone N/A
 Baritone N/A
@@ -37,15 +30,19 @@ Clarinet 1st
 Snare Drums
 Snare Drums
 Snare Drums
+Snare Drums
+Bass Drums
 Bass Drums
 Bass Drums
 Bass Drums
 Cymbals
 Cymbals
 Cymbals
+Cymbals
 Tenors
 Tenors
 Tenors
+Tenors
 Glocks
 Glocks
 Glocks
@@ -60,8 +57,6 @@ Flute/Piccolo 1
 Flute/Piccolo 1
 Flute/Piccolo 1
 Flute/Piccolo 1
-Flute/Piccolo 1
-Flute/Piccolo 1
 Mellophone N/A
 Mellophone N/A
 Mellophone N/A
@@ -69,22 +64,6 @@ Mellophone N/A
 Mellophone N/A
 Mellophone N/A
 Mellophone N/A
-Mellophone N/A
-Mellophone N/A
-Mellophone N/A
-Roadie N/A
-Roadie N/A
-Roadie N/A
-Roadie N/A
-Roadie N/A
-Roadie N/A
-Roadie N/A
-Roadie N/A
-Roadie N/A
-Roadie N/A
-Sousaphone N/A
-Sousaphone N/A
-Sousaphone N/A
 Sousaphone N/A
 Sousaphone N/A
 Sousaphone N/A
@@ -113,11 +92,6 @@ Trombone 2nd
 Trombone 3rd
 Trombone 3rd
 Trombone 3rd
-Trombone 2nd
-Trombone 2nd
-Trombone 2nd
-Trombone 1st
-Trombone 1st
 Trumpet 2nd
 Trumpet 1st
 Trumpet 1st
@@ -127,11 +101,8 @@ Trumpet 2nd
 Trumpet 3rd
 Trumpet 1st
 Trumpet 3rd
-Trumpet 3rd
 Trumpet 1st
 Trumpet 1st
-Trumpet 1st
-Trumpet 2nd
 Trumpet 2nd
 Trumpet 2nd
 Trumpet 2nd
