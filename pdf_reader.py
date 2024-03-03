@@ -1,4 +1,5 @@
 import pdf_grouper as grouper   
+import part as part
 import fitz
 import argparse
 import sys
@@ -37,7 +38,6 @@ def getSubFiles(paths: list[str], files:list[str] = [],
     for f in paths:
         if os.path.exists(f):
             if os.path.isdir(f):
-                # print("folder found")
                 if recursive:
                     getSubFiles(glob.glob(f + "/*"), files, ignore_prefix)
                 else:
@@ -81,7 +81,6 @@ def openCropSaveDocs(filepaths: list[str], prefix:str = prefix,
     :param kwargs: Kwargs to be passed along to :func:`pdf_reader.createCroppedDocument`
     :return: Returns list of paths for the newly created pdf files
     '''
-    # print(kwargs)
     if not type(filepaths) == list:
         filepaths = [filepaths]
     new_files = []
@@ -90,20 +89,14 @@ def openCropSaveDocs(filepaths: list[str], prefix:str = prefix,
     try:
         os.mkdir(new_folder)
     except:
-        # pass
         print('new folder already exists')
-    # print(grouper.DRUMS)
     for file,doc in docs.items():
-        # print(file)
-        partname = grouper.matchPart(grouper.getPartNameFromString(file),quiet = True)
-        partname = partname[:-1] + '0'
+        Part = part.getPartFromFilepath(file)
         if auto_expand:
-            # print(partname)
-            if partname in grouper.DRUMS:
-                print('expanding', partname)    
+            if Part in grouper.DRUMS:
+                print('expanding', Part)    
                 kwargs['expand'] = True
-            else:
-                kwargs['expand'] = False
+            else: kwargs['expand'] = False
         alt = createCroppedDocument(doc, **kwargs)
         new_filename = new_folder + '\\' + os.path.basename(file)
         saveDocument(alt, new_filename, prefix)
@@ -147,12 +140,12 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
                 page.set_cropbox(fitz.Rect(left_mg, (r.y1 / 2) - top_mg, r.x1 - right_mg, r.y1-bottom_mg))
                 src_pix2 = page.get_pixmap(dpi = 300,colorspace='GRAY')
                 new_page2 = doc.new_page()
-                insertImage(new_page2, src_pix2, expand,rotate,right_align)
+                insertFullPageImage(new_page2, src_pix2)
         else:
             page.set_cropbox(fitz.Rect(croprect))
             print(page.cropbox_position)
             src_pix = page.get_pixmap(dpi = 300,colorspace='GRAY')
-            insertImage(new_page, src_pix, expand, rotate,right_align)
+            insertImage(new_page, src_pix, rotate=rotate)
     return doc 
 
 def insertFullPageImage(page, src_pix) -> None:
@@ -161,7 +154,7 @@ def insertFullPageImage(page, src_pix) -> None:
     page.insert_image(r, pixmap= src_pix, rotate = 90)
 
 def insertImage(page, src_pix, right_align = True, **kwargs) -> None:
-    r = page.bound
+    r = page.bound()
     top = fitz.Rect(0, 5, r.x1 * CW, r.y1 / 2 - 5)
     bottom = fitz.Rect(0, r.y1 / 2 + 5, r.x1 * CW, r.y1 - 5)
     if not right_align:
@@ -171,10 +164,10 @@ def insertImage(page, src_pix, right_align = True, **kwargs) -> None:
             pixmap= src_pix, **kwargs)
     else:
         page.insert_image(fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1 / 2),
-            pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
+            pixmap= src_pix, **kwargs)
         page.insert_image(fitz.Rect(r.x1 * (1 - CW), r.y1 / 2, r.x1, r.y1), 
-                pixmap= src_pix, rotate = rotate, keep_proportion = keep_proportion)
-
+                pixmap= src_pix, **kwargs)
+    
 def rightAlign(doc: fitz.Document) -> fitz.Document:
     out_doc = fitz.Document(rect=FORMAT)
     for page in doc:
@@ -215,18 +208,18 @@ def resizeDocument(src: fitz.Document, format:str = 'letter') -> fitz.Document:
         page.show_pdf_page(page.rect, src, ipage.number)
     return doc
 
-def openDocuments(filenames: list[str], right_align:bool = False, size:str = None) -> dict[str, fitz.Document]:
+def openDocuments(filenames: list[str], right_align:bool = False, size:str = None) -> list[fitz.Document]:
     if not type(filenames) == list:
         filenames = [filenames]
     filenames = [file for file in filenames if os.path.exists(file)]    
-    out = {}
+    out = []
     for filename in filenames:
         doc = fitz.open(filename)
         if size:
             doc = resizeDocument(doc, size)
         if right_align:
             doc = rightAlign(doc)
-        out[filename] = doc
+        out.append(doc)
     return out
 
 def saveDocument(doc: fitz.Document, filename:str, prefix = prefix, close = True) -> None: 
@@ -242,7 +235,7 @@ def combineDocuments(docs: list[fitz.Document]) -> fitz.Document:
         out_doc.insert_pdf(doc)
     return out_doc
 
-def strtobool (val):
+def strtobool (val) -> bool:
     '''
     Convert a string representation of truth to true (1) or false (0).
     True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
@@ -283,15 +276,13 @@ if __name__ == "__main__":
                         help='Align pdfs to right edge of the page, don\'t do any cropping',
                         dest='left_align_only', action='store_true')
     args = parser.parse_args()
+    files = getSubFiles(args.filename)
+    docs = openDocuments(files)
     if args.right_align_only:
-        files = getSubFiles(args.filename)
-        docs = openDocuments(files)
-        for path, doc in docs.items():
+        for path, doc in zip(files, docs):
             saveDocument(rightAlign(doc), path)
     elif args.left_align_only:
-        files = getSubFiles(args.filename)
-        docs = openDocuments(files)
-        for path, doc in docs.items():
+        for path, doc in zip(files, docs):
             saveDocument(leftAlign(doc), path)
     elif (len(sys.argv) > 1):
         main(**vars(args))

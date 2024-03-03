@@ -1,6 +1,7 @@
 Flute
 Clarinet 1
 Clarinet 2
+Clarinet 3
 Alto Saxophone 1
 Alto Saxophone 2
 Tenor Saxophone
