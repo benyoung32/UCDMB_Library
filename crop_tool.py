@@ -43,13 +43,12 @@ class CropTool(tk.Toplevel):
         self.expand_var = tk.BooleanVar(self)
         self.twoinone_var = tk.BooleanVar(self)
         self.CROPBOX = None
-        # print(self.focus_get())
         if not filepath:
             self.path = self.openFile()
         else:
             self.path = filepath
         # self.path = "hm.pdf"
-        doc = reader.openDocuments(self.path)[self.path]
+        doc = reader.openDocuments(self.path)[0]
         page = doc[0]
         self.page_br = page.bound().br
         # set up canvases 
@@ -110,7 +109,6 @@ class CropTool(tk.Toplevel):
 
     def updateKeyboardInput(self):
         key_string = self.keyvar.get()
-        # print(key_string)
         if 'Shift' in key_string or 'Shift_L' in key_string: target = self.tl
         else: target = self.br
         
@@ -155,7 +153,6 @@ class CropTool(tk.Toplevel):
     def getSettingsDict(self) -> dict[str, any]:
         args = {}
         tl, br = self.tl, self.br
-        print(tl, br)
         args['filename'] = self.path
         args['margins'] = (int(tl.y), int(tl.x) + 10, int(self.page_br.x - br.x) + 10, int(self.page_br.y - br.y))
         args['full_size'] = self.fullsize_var.get()
@@ -163,7 +160,6 @@ class CropTool(tk.Toplevel):
         args['expand'] = self.expand_var.get()
         args['right_align'] = self.rightalign_var.get()
         args['rotate'] = self.getRotation()    
-        # print(args)
         return args
 
     def getSettingsString(self) -> str:
@@ -185,11 +181,10 @@ class CropTool(tk.Toplevel):
         ''' apply current settings to the folder where the sample came from '''
         folder= os.path.dirname(self.path)
         files = reader.getSubFiles(folder)
-        # print(files)
         reader.openCropSaveDocs(files, reader.prefix, **self.getSettingsDict())
     
     def applyCropToFile(self) -> None:
-        reader.processDocs(self.path, reader.prefix, **self.getSettingsDict())
+        reader.openCropSaveDocs(self.path, reader.prefix, **self.getSettingsDict())
     
     # get rotation from entry box, sanitize input
     def getRotation(self) -> int:
@@ -204,7 +199,7 @@ class CropTool(tk.Toplevel):
 
     def createPreviewWindow(self) -> None:
         args = self.getSettingsDict()
-        doc = reader.openDocuments(self.path,size='a4')[self.path]
+        doc = reader.openDocuments(self.path,size='a4')[0]
         # alter document using settings 
         newdoc = reader.createCroppedDocument(doc,**args)
         # create new window to show altered document

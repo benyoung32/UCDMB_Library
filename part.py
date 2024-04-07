@@ -14,12 +14,12 @@ FLUFF = ['in']
 
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     # print('running in a PyInstaller bundle')
-    ALIAS_FILE = ".\\_internal\\alias.json"
+    ALIAS_FILE = '.\\_internal\\alias.json'
     SUBSTITUTION_FILE = '.\\_internal\\substitution.json'
 else:
     # print('running in a normal Python process')
-    ALIAS_FILE = "alias.json"
-    SUBSTITUTION_FILE = 'substitution.json'
+    ALIAS_FILE = 'part_config/alias.json'
+    SUBSTITUTION_FILE = 'part_config/substitution.json'
 
 
 f = open(ALIAS_FILE)
@@ -89,7 +89,7 @@ class Part:
         if self.number != '0': out += ' ' + self.number
         return out.title()
 
-def getPartFromFilepath(input:str) -> str:
+def getPartFromFilepath(input:str) -> Part:
     '''
     From string, split up string into words and search
     for matching part name from alias. Works best on filepaths
@@ -99,8 +99,8 @@ def getPartFromFilepath(input:str) -> str:
     # first clean file name, remove seperators etc.
     cleaned_input = os.path.basename(os.path.normpath(input))
     cleaned_input = cleaned_input.replace('Piccolo-Flute','Flute')
-    for rm in REMOVED_CHARS:
-        cleaned_input = cleaned_input.replace(rm, ' ')
+    for c in REMOVED_CHARS:
+        cleaned_input = cleaned_input.replace(c, ' ')
         cleaned_input = cleaned_input.strip()
     return Part(cleaned_input)
 

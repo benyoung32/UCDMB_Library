@@ -3,7 +3,6 @@ newfile.pdf
 tempCodeRunnerFile.py
 *.pyc
 pdfs
-*.pdf
 *.zip
 dist
 build

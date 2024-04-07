@@ -41,7 +41,7 @@ def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = Fals
         for doc in docs.values():
             for page in doc:
                 page.set_rotation(rotate)
-    for filepath, doc in docs.items():
+    for filepath, doc in zip(filenames, docs):
         last_pages = [None] * doc.page_count
         if from_part: 
             partsfilepath = os.path.basename(filepath)+ '.txt'
@@ -410,24 +410,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args.filename)
     if args.last_page_file:
-        last_pages = grouper.readFile(args.last_page_file)
+        last_pages = readFile(args.last_page_file)
         last_pages = [reader.strtobool(s) for s in last_pages]
     else:
         last_pages = None
     args.pages_override = last_pages
     if args.output_names_filepath:
-        output_names = grouper.readFile(args.output_names_filepath)
+        output_names = readFile(args.output_names_filepath)
     else:
         output_names = None
-    # files = reader.getSubFiles(args.filename)
-    # # files = [grouper.getPartNameFromString(file) for file in files]
-    # files = [file for file in files if grouper.getPartNameFromString(file) == 'clarinet 2']
-    # # print(files)
-    # for f in files:
-    #     # d = f
-    #     d = f[0:-5] + '1.pdf'
-    #     # print(d)
-    #     shutil.copy(f,d)
     if args.gui or frozen:
         root = tk.Tk()
         root.withdraw()

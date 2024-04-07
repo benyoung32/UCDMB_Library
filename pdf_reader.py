@@ -11,7 +11,7 @@ FORMAT = fitz.paper_rect('letter')
 
 CW = 0.85 # cropped width
 
-def main(filename = 'pdfs', **kwargs) -> None:
+def main(filename:str = 'pdfs', **kwargs) -> None:
     '''
     Main function. Opens filenames, passes kwargs to processDocs
     '''
@@ -90,9 +90,11 @@ def openCropSaveDocs(filepaths: list[str], prefix:str = prefix,
         os.mkdir(new_folder)
     except:
         print('new folder already exists')
-    for file,doc in docs.items():
+    for file, doc in zip(filepaths, docs):
         Part = part.getPartFromFilepath(file)
+        print(file)
         if auto_expand:
+            print(Part)
             if Part in grouper.DRUMS:
                 print('expanding', Part)    
                 kwargs['expand'] = True
@@ -145,7 +147,10 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
             page.set_cropbox(fitz.Rect(croprect))
             print(page.cropbox_position)
             src_pix = page.get_pixmap(dpi = 300,colorspace='GRAY')
-            insertImage(new_page, src_pix, rotate=rotate)
+            if expand:
+                insertFullPageImage(new_page, src_pix)
+            else:
+                insertImage(new_page, src_pix, rotate=rotate)
     return doc 
 
 def insertFullPageImage(page, src_pix) -> None:
@@ -153,7 +158,7 @@ def insertFullPageImage(page, src_pix) -> None:
     page.set_rotation(90)
     page.insert_image(r, pixmap= src_pix, rotate = 90)
 
-def insertImage(page, src_pix, right_align = True, **kwargs) -> None:
+def insertImage(page, src_pix, right_align = False, **kwargs) -> None:
     r = page.bound()
     top = fitz.Rect(0, 5, r.x1 * CW, r.y1 / 2 - 5)
     bottom = fitz.Rect(0, r.y1 / 2 + 5, r.x1 * CW, r.y1 - 5)

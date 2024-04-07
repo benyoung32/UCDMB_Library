@@ -28,10 +28,12 @@ def readFile(filepath:str) -> list[str]:
     :return: A list containing each line of the file at filepath
     '''
     reqs = []
+    # print(filepath)
     with open(filepath) as file:
         while line := file.readline():
             line = line.strip()
             line = line.strip("\'\"")
+            # print(line)
             reqs.append(line.strip())
         file.close()
     return reqs
