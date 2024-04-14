@@ -31,7 +31,7 @@ def createPageScaledImage(parent, page: fitz.Page, dpi = 300, resize:fitz.Point 
     return my_image
 
 class CropTool(tk.Toplevel):
-    def __init__(self,parent,filepath=None) -> None:
+    def __init__(self,parent,filepath="") -> None:
         super().__init__(parent)
         self.title("Crop pdf")
         self.geometry("1000x1000")
@@ -39,30 +39,18 @@ class CropTool(tk.Toplevel):
         self.keyvar = tk.StringVar()
         self.rotate_var = tk.IntVar(self)
         self.rightalign_var = tk.BooleanVar(self)
-        self.fullsize_var = tk.BooleanVar(self)
+        # self.fullsize_var = tk.BooleanVar(self)
         self.expand_var = tk.BooleanVar(self)
         self.twoinone_var = tk.BooleanVar(self)
         self.CROPBOX = None
-        if not filepath:
-            self.path = self.openFile()
-        else:
-            self.path = filepath
-        # self.path = "hm.pdf"
-        doc = reader.openDocuments(self.path)[0]
-        page = doc[0]
-        self.page_br = page.bound().br
-        # set up canvases 
-        self.cv_width, self.cv_height = (self.page_br.x * SCALE,self.page_br.y * SCALE)
+                
         self.main_frame = tk.Frame(master=self,
-                    width=self.cv_width * 2 + PADDING * 4, 
-                    height = self.cv_height + PADDING * 4,bg='gray')
+                    width=1000 * 2 + PADDING * 4, 
+                    height = 1000 + PADDING * 4,bg='gray')
+        self.openFile(filepath)
+        size = 1000
         self.button_frame = tk.Frame(master=self.main_frame,
                     bg='green',height=10,width =self.cv_width)
-        self.pdf_canvas = tk.Canvas(master=self.main_frame, 
-                    width = self.cv_width, height=self.cv_height, bg='yellow')
-        # preview_canvas= tk.Canvas(master=main_frame, width = cv_width, height = cv_height, bg = 'blue')
-        
-        self.pdf_canvas.grid(row=0,column=0,sticky='ew',padx=PADDING,pady=PADDING)
         # preview_canvas.grid(row=0,column=1,sticky='ew',padx=PADDING,pady=PADDING)
         self.preview_button = tk.Button(self.button_frame, command=self.createPreviewWindow,
                                 width = 10, height = 1,text='Create Preview')
@@ -72,9 +60,11 @@ class CropTool(tk.Toplevel):
                                 width = 20, height = 1, text = 'Apply to folder')
         self.crop_file_button = tk.Button(self.button_frame, command=self.applyCropToFile, width = 20, height = 1,
                                           text = 'Apply to file')
+        self.open_file_button = tk.Button(self.button_frame, command=self.openFile, text = 'Open file',
+                                          width = 20, height = 1);
         self.rotate_entry = EntryWithLabel(self.button_frame,'Rotate?','')
-        self.fullsize_box = CheckButtonWithLabel(self.button_frame, 
-                                                'Full Size?',self.fullsize_var )
+        # self.fullsize_box = CheckButtonWithLabel(self.button_frame, 
+        #                                         'Full Size?',self.fullsize_var )
         self.expand_box = CheckButtonWithLabel(self.button_frame,
                                                 'Expand?', self.expand_var)
         self.twoinone_box = CheckButtonWithLabel(self.button_frame,
@@ -84,28 +74,44 @@ class CropTool(tk.Toplevel):
         self.button_frame.grid(row=0,column=1,sticky='nw',pady=PADDING,padx=PADDING)
         self.preview_button.grid(row=0,column=0,sticky='nwes')
         self.export_button.grid(row=0,column=1,sticky='nwes')
+        
+
         self.crop_file_button.grid(row=6,column=0, sticky='nwes')
         self.crop_folder_button.grid(row=7,column=0,sticky='nwes')
+        
         self.rotate_entry.grid(row=1,column=0,sticky='nwes',columnspan=2)
-        self.fullsize_box.grid(row=2,column=0,sticky = 'nwes',columnspan=2)
+        # self.fullsize_box.grid(row=2,column=0,sticky = 'nwes',columnspan=2)
         self.expand_box.grid(row=3,column=0,sticky = 'nwes',columnspan=2)
         self.twoinone_box.grid(row=4,column=0,sticky = 'nwes',columnspan=2)
         self.rightalign_box.grid(row=5,column=0,sticky = 'nwes',columnspan=2)
         self.main_frame.pack(padx=PADDING,pady=PADDING,fill='none')
-        myimage = createPageScaledImage(self,page,resize=page.bound().br)
-        self.pdf_canvas.create_image(2,2,image=myimage,anchor='nw')
+
+        self.after(30,self.updateKeyboardInput)
+        self.bind("<Destroy>", self.kill_root)
+        self.mainloop()
+
+    def initPDFCanvas(self) -> None:
+        
+        doc = reader.openDocuments([self.path])[0]
+        page = doc[0]
+        self.page_br = page.bound().br
+        # set canvas 
+        self.cv_width, self.cv_height = (self.page_br.x * SCALE,self.page_br.y * SCALE)
+        self.pdf_canvas = tk.Canvas(master=self.main_frame, 
+                    width = self.cv_width, height=self.cv_height, bg='yellow')
+        self.pdf_canvas.grid(row=0,column=0,sticky='ew',padx=PADDING,pady=PADDING)
+        # draw document to canvas
+        self.myimage = createPageScaledImage(self,page,resize=page.bound().br)
+        self.pdf_canvas.create_image(0,0,image=self.myimage,anchor='nw')
+        # init selection box as max size
         self.tl = fitz.Point(2,2)
         self.br = copy(self.page_br)
-
+        
         self.pdf_canvas.bind('<KeyPress>', self.keydown)
         self.pdf_canvas.bind('<KeyRelease>', self.keyup)
         self.pdf_canvas.bind('<Button-1>', self.onClick)
         self.pdf_canvas.bind('<B1-Motion>', self.onDrag)
         self.pdf_canvas.focus_set()
-
-        self.after(30,self.updateKeyboardInput)
-        self.bind("<Destroy>", self.kill_root)
-        self.mainloop()
 
     def updateKeyboardInput(self):
         key_string = self.keyvar.get()
@@ -118,6 +124,7 @@ class CropTool(tk.Toplevel):
         if 'Up' in key_string: target.y = target.y - scale
         if 'Right' in key_string: target.x = target.x  + scale
         if 'Down' in key_string: target.y = target.y + scale
+
         self.drawCropBox()
         self.after(30,self.updateKeyboardInput)
     
@@ -133,7 +140,13 @@ class CropTool(tk.Toplevel):
         self.br.y = event.y
         self.drawCropBox()
 
-    def openFile(self) -> str:
+    def openFile(self, filepath:str = "" ) -> None:
+        if (filepath == ""): filepath = self.openFilePrompt()
+        self.path = filepath
+        self.initPDFCanvas()
+        pass
+
+    def openFilePrompt(self) -> str:
         # get file info
         answer = tk.filedialog.askopenfile(parent=self.master,
                                 initialdir=os.getcwd(),
@@ -143,10 +156,18 @@ class CropTool(tk.Toplevel):
         self.focus_get()
         return answer.name
 
-    # draw current cropbox onto pdf_canvas, replacing previous21FD
+    # draw current cropbox onto pdf_canvas, replacing previous
     def drawCropBox(self) -> None:
         if (self.CROPBOX):
             self.pdf_canvas.delete(self.CROPBOX)
+
+        # clamp points within window
+        for point in [self.tl, self.br]:
+            point.y = max(0, point.y)
+            point.y = min(point.y, self.pdf_canvas.winfo_height())
+            point.x = max(0, point.x)
+            point.x = min(point.x, self.pdf_canvas.winfo_width())
+
         self.CROPBOX = self.pdf_canvas.create_rectangle(self.tl.x, 
                         self.tl.y, self.br.x, self.br.y,outline='dodger blue',width=1)
 
@@ -155,7 +176,8 @@ class CropTool(tk.Toplevel):
         tl, br = self.tl, self.br
         args['filename'] = self.path
         args['margins'] = (int(tl.y), int(tl.x) + 10, int(self.page_br.x - br.x) + 10, int(self.page_br.y - br.y))
-        args['full_size'] = self.fullsize_var.get()
+        # args['full_size'] = self.fullsize_var.get()
+        args['full_size'] = True
         args['two_in_one'] = self.twoinone_var.get()
         args['expand'] = self.expand_var.get()
         args['right_align'] = self.rightalign_var.get()
