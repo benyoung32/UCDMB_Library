@@ -43,7 +43,17 @@ class CropTool(tk.Toplevel):
         self.expand_var = tk.BooleanVar(self)
         self.twoinone_var = tk.BooleanVar(self)
         self.CROPBOX = None
-                
+        
+        if not filepath:
+            self.path = self.openFilePrompt()
+        else:
+            self.path = filepath
+            
+        doc = reader.openDocuments([self.path])[0]
+        page = doc[0]
+        self.page_br = page.bound().br
+        # set up canvases 
+        self.cv_width, self.cv_height = (self.page_br.x * SCALE,self.page_br.y * SCALE)
         self.main_frame = tk.Frame(master=self,
                     width=1000 * 2 + PADDING * 4, 
                     height = 1000 + PADDING * 4,bg='gray')
@@ -76,8 +86,11 @@ class CropTool(tk.Toplevel):
         self.export_button.grid(row=0,column=1,sticky='nwes')
         
 
+        
+
         self.crop_file_button.grid(row=6,column=0, sticky='nwes')
         self.crop_folder_button.grid(row=7,column=0,sticky='nwes')
+        
         
         self.rotate_entry.grid(row=1,column=0,sticky='nwes',columnspan=2)
         # self.fullsize_box.grid(row=2,column=0,sticky = 'nwes',columnspan=2)
@@ -140,7 +153,10 @@ class CropTool(tk.Toplevel):
         self.br.y = event.y
         self.drawCropBox()
 
-    def openFile(self, filepath:str = "" ) -> None:
+    def setFile(self, str) -> None:
+
+
+    def openFilePrompt(self, filepath:str = "" ) -> None:
         if (filepath == ""): filepath = self.openFilePrompt()
         self.path = filepath
         self.initPDFCanvas()
