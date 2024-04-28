@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['crop_tool.py'],
+    ['../crop_tool.py'],
     pathex=[],
     binaries=[],
-    datas=[('alias.json','.'),('substitution.json','.'),('template.png','.')],
+    datas=[('../part_config/alias.json','.'),('../part_config/substitution.json','.'),('../template.png','.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -36,7 +36,7 @@ exe = EXE(
 
 
 b = Analysis(
-    ['pdf_splitter.py'],
+    ['../pdf_splitter.py'],
     pathex=[],
     binaries=[],
     datas=[],

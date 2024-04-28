@@ -4,7 +4,9 @@ tempCodeRunnerFile.py
 *.pyc
 pdfs
 *.zip
-dist
+_internal
 build
+__pycache
 txtfiles
 test
+!exec_builder\dist\crop_tool\crop_tool.exe

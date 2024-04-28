@@ -240,6 +240,7 @@ def combineDocuments(docs: list[fitz.Document]) -> fitz.Document:
         out_doc.insert_pdf(doc)
     return out_doc
 
+
 def strtobool (val) -> bool:
     '''
     Convert a string representation of truth to true (1) or false (0).

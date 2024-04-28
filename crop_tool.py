@@ -41,13 +41,9 @@ class CropTool(tk.Toplevel):
         
         self.key_history = [] # this is for tracking multiple keyboard inputs at once
         # these are the variables affected by the GUI entries
-        self.keyvar = tk.StringVar()
-        self.rotate_var = tk.IntVar(self)
-        self.rightalign_var = tk.BooleanVar(self)
-        self.expand_var = tk.BooleanVar(self)
-        self.twoinone_var = tk.BooleanVar(self)
         self.CROPBOX = None
-        
+        self.keyvar = tk.StringVar()
+
         # create GUI frames
         self.main_frame = tk.Frame(master=self,
                     width=1000 * 2 + PADDING * 4, 
@@ -56,11 +52,11 @@ class CropTool(tk.Toplevel):
         # open file to display and crop
         self.openFile(filepath)
 
+        # set up GUI entries
         self.initEntries()
-
         self.entry_frame.pack(fill='both', pady= PADDING,side = 'right',expand = True)
         self.main_frame.pack(padx=PADDING,pady=PADDING,fill='both')
-
+        
         self.after(30,self.updateKeyboardInput)
         self.bind("<Destroy>", self.kill_root)
         self.mainloop()
@@ -79,6 +75,12 @@ class CropTool(tk.Toplevel):
                                 text = 'Open file',);
         self.rotate_entry = self.addEntry(EntryWithLabel,label='Rotate?',
                                 default='')
+        
+        self.rotate_var = tk.IntVar(self)
+        self.rightalign_var = tk.BooleanVar(self)
+        self.expand_var = tk.BooleanVar(self)
+        self.twoinone_var = tk.BooleanVar(self)
+
         self.expand_box = self.addEntry(CheckButtonWithLabel,
                                 label='Expand?', var=self.expand_var)
         self.twoinone_box = self.addEntry(CheckButtonWithLabel,
@@ -135,13 +137,14 @@ class CropTool(tk.Toplevel):
         self.after(30,self.updateKeyboardInput)
     
     def onClick(self, event) -> None:
-        if not 'Control_L' in self.keyvar.get(): return
+        self.pdf_canvas.focus_set()
+        # if not 'Control_L' in self.keyvar.get(): return
         self.tl.x = event.x
         self.tl.y = event.y
         self.drawCropBox()
 
     def onDrag(self, event):
-        if not 'Control_L' in self.keyvar.get(): return
+        # if not 'Control_L' in self.keyvar.get(): return
         self.br.x = event.x
         self.br.y = event.y
         self.drawCropBox()
@@ -166,7 +169,6 @@ class CropTool(tk.Toplevel):
     def drawCropBox(self) -> None:
         if (self.CROPBOX):
             self.pdf_canvas.delete(self.CROPBOX)
-
         # clamp points within window
         for point in [self.tl, self.br]:
             point.y = max(0, point.y)
@@ -181,6 +183,11 @@ class CropTool(tk.Toplevel):
         # build dict to describe the requested crop operation 
         args = {}
         tl, br = self.tl, self.br
+                # swap tl and br if necessary 
+        if tl.x > br.x or tl.y > br.y:
+            temp = tl
+            tl = br
+            br = temp
         args['filename'] = self.filepath
         args['margins'] = (int(tl.y), int(tl.x) + 10, int(self.page_br.x - br.x) + 10, int(self.page_br.y - br.y))
         args['full_size'] = True
@@ -278,6 +285,7 @@ class CheckButtonWithLabel(tk.Frame):
         self.checkbutton.pack(side="right", fill="both", padx=4)
 
 class PDFWindow(tk.Toplevel):
+    '''Displays a PDF in a top level window'''
     def __init__(self,parent:tk.Widget,doc:fitz.Document,title:str) -> None:
         tk.Toplevel.__init__(self, parent)
         br = doc[0].bound().br
@@ -288,6 +296,7 @@ class PDFWindow(tk.Toplevel):
         self.image_canvas.pack()
 
 class PDFCanvas(tk.Frame):
+    '''Displays a PDF in a frame, as well as showing page numbers'''
     def __init__(self, parent:tk.Widget,doc:fitz.Document,label_var:tk.StringVar = None) -> None:
         tk.Frame.__init__(self, parent)
         self.doc = doc
@@ -336,10 +345,8 @@ class PDFCanvas(tk.Frame):
             self.image_canvas.delete(self.image_id)
             self.image_id = -1
     
-        # self.geometry('{0}x{1}'.format(int(br.x), int(br.y)))
 if __name__ == "__main__":
     root = tk.Tk()
     root.grab_set()
     root.withdraw()
     CropTool(root)    
-# show preview
