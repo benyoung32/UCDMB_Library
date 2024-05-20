@@ -19,6 +19,11 @@ PART_NUMBERS = ['1','2','3','4','5']
 PART_NUMBERS_FANCY = ['1st','2nd','3rd','4th','5th']
 IGNORED_WORDS = ['full']
 
+all_parts = ['flute', 'clarinet', 'alto', 'tenor', 'baritone sax', 
+            'trumpet', 'mellophone','trombone', 'baritone', 'sousaphone',
+            'glock', 'snare', 'cymbal', 'quads', 'basses']
+SCORE_ORDER = [Part(p) for p in all_parts]
+
 
 class Packet: 
     '''This class defines a set of songs and parts, with a mapping between each part
@@ -29,7 +34,7 @@ class Packet:
         # self.folders = folders
         self.unique_parts = getUniqueParts(parts)
         self.instrument_groups = groupInstruments(self.parts)
-        
+        self.sortInstrumentGroupsByScoreOrder()
         self.non_drums = [part for part in self.unique_parts if part not in DRUMS]
         self.drums = [part for part in self.unique_parts if part in DRUMS]
         
@@ -64,6 +69,13 @@ class Packet:
         f.close()
         return
     
+    def sortInstrumentGroupsByScoreOrder(self) -> None:
+        sorted = []
+        for p in SCORE_ORDER:
+            for group in self.instrument_groups:
+                if (group[0].instrument == p.instrument):
+                    sorted.append(group)
+        self.instrument_groups = sorted
     def buildDocument(self) -> fitz.Document:
         final_combined_doc = fitz.Document()
 
@@ -80,18 +92,22 @@ class Packet:
         r = top_rect
 
         for group in self.instrument_groups:
-            for i in range(self.getSongCount()):
+            # for i in range(self.getSongCount()):
                 for part in group:
                     # some parts may be missing some documents
-                    if i > len(self.docs[part]): break
+                    # if i > len(self.docs[part]): break
+                    
                     if part in DRUMS:
-                        for _ in range(self.parts.count(part)):
-                            final_combined_doc.insert_pdf(self.docs[part][i])
+                        for i in range(self.getSongCount()):
+                            for _ in range(self.parts.count(part)):
+                                final_combined_doc.insert_pdf(self.docs[part][i])
                         continue
-                    imgs = topHalfPixmaps([self.docs[part][i]])
+                    
+                    # imgs = topHalfPixmaps([self.docs[part][i]])
+                    imgs = topHalfPixmaps(self.docs[part])
                     for _ in range(self.parts.count(part)):
                         for img in imgs:
-                            final_combined_doc[page].insert_image(r, pixmap=img)
+                            final_combined_doc[page].insert_image(r, pixmap=img) # type: ignore
                             print(part, page)
                             page += 1
                             if page > final_page_count - 1:
@@ -178,7 +194,7 @@ def loadJSON(json_path: str) -> Packet:
             for _ in range(values['count']): parts.append(part)
     return Packet(parts, filepaths)
 
-def groupInstruments(parts: list[Part]):
+def groupInstruments(parts: list[Part]) -> list[list[Part]]:
     instrument_groups = []
     group = []
     unique_parts = getUniqueParts(parts)
@@ -217,13 +233,15 @@ def main(folders: list[str], parts: list[Part], output_folder:str, combine:bool 
 def topHalfPixmaps(docs: list[fitz.Document]) -> list[fitz.Pixmap]:
     out = []
     if type(docs) is not list:
-        docs = [docs]
+        docs = [docs] # type: ignore
     for doc in docs:
         for page in doc:
             r = page.bound()
             r.y1 /= 2
             page.set_cropbox(r)
             out.append(page.get_pixmap(dpi=300))
+            r.y1 *= 2
+            page.set_cropbox(r)
     return out 
 
 def findPartFiles(folder_paths:list[str],parts:list[Part]) -> dict[Part, list[str]]:

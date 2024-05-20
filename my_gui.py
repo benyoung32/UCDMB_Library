@@ -4,7 +4,6 @@ import sys
 import glob
 import pathlib
 from typing import List
-import printer_prompt
 import pdf_reader
 from PIL import Image, ImageTk
 from fitz import *

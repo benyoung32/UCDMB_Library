@@ -32,6 +32,7 @@ for k,v in alias.items():
         alias_flat.append(s)
 
 class Part:
+
     def __init__(self, raw_string: str) -> None:
         '''
         Finds a matching standardized part name from input part 

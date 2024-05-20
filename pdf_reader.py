@@ -1,6 +1,7 @@
 import pdf_grouper as grouper   
 import part as part
 import fitz
+import fitz.fitz
 import argparse
 import sys
 import os
@@ -15,7 +16,7 @@ def main(filename:str = 'pdfs', **kwargs) -> None:
     '''
     Main function. Opens filenames, passes kwargs to processDocs
     '''
-    files = getSubFiles(filename)
+    files = getSubFiles([filename])
     print('found:')
     print(files)
     openCropSaveDocs(files, **kwargs)
@@ -33,8 +34,6 @@ def getSubFiles(paths: list[str], files:list[str] = [],
     :param recursive: If true, recurse into subfolders as well 
     :return: List of pdf files found
     '''
-    if not type(paths) == list:
-        paths = [paths]
     for f in paths:
         if os.path.exists(f):
             if os.path.isdir(f):
@@ -55,8 +54,6 @@ def getSubFolders(folderpaths: list[str], folders: list[str] = []) -> list[str]:
     :param folders: list of folders found already (for recursion)
     :return: List of found folder paths
     '''
-    if not type(folderpaths) == list:
-        folderpaths = [folderpaths]
     for f in folderpaths:
         if os.path.exists(f):
             if os.path.isdir(f):
@@ -121,28 +118,33 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
                       or should the cropping begin from half of the page
     :param;
     '''
+    print(right_align)
     doc = fitz.Document(rect=FORMAT)  # create new empty doc
+    # unpack margin array
     top_mg, left_mg, right_mg, bottom_mg = margins
     fmt = fitz.paper_rect('letter')
+    
     for page in src:  # process each page
-        page.set_rotation(0)  # ensure page is rotated correctly
-        new_page = doc.new_page(width = fmt.width, height = fmt.height)  # create new empty output page
+        page.set_rotation(0)  # make sure page has no rotation
+        # this will be the output page
+        new_page = doc.new_page(width = fmt.width, height = fmt.height)  
         r = page.mediabox
         if full_size: # only use one
             croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-bottom_mg)
-        elif rotate == 0: 
-            croprect = fitz.Rect(left_mg, top_mg, r.x1 - right_mg, r.y1 / 2 - bottom_mg)
         else:
             croprect = fitz.Rect(r.x1 / 2 - top_mg, bottom_mg, r.x1 - right_mg, r.y1 - left_mg)
         if two_in_one: # for duplicating ones that are already half size and two pages
+            # TODO: this is broke ;-;
             page.set_cropbox(croprect)
             src_pix = page.get_pixmap(dpi = 300)
-            insertImage(new_page, src_pix, expand, rotate,right_align)
             if expand: 
+                insertFullPageImage(page, src_pix)
                 page.set_cropbox(fitz.Rect(left_mg, (r.y1 / 2) - top_mg, r.x1 - right_mg, r.y1-bottom_mg))
                 src_pix2 = page.get_pixmap(dpi = 300,colorspace='GRAY')
                 new_page2 = doc.new_page()
                 insertFullPageImage(new_page2, src_pix2)
+            else:
+                insertImage(new_page, src_pix, rotate=rotate,right_align=right_align)
         else:
             page.set_cropbox(fitz.Rect(croprect))
             print(page.cropbox_position)
@@ -150,7 +152,7 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
             if expand:
                 insertFullPageImage(new_page, src_pix)
             else:
-                insertImage(new_page, src_pix, rotate=rotate)
+                insertImage(new_page, src_pix, rotate=rotate,right_align=right_align)
     return doc 
 
 def insertFullPageImage(page, src_pix) -> None:
@@ -240,7 +242,6 @@ def combineDocuments(docs: list[fitz.Document]) -> fitz.Document:
         out_doc.insert_pdf(doc)
     return out_doc
 
-
 def strtobool (val) -> bool:
     '''
     Convert a string representation of truth to true (1) or false (0).
@@ -282,10 +283,12 @@ if __name__ == "__main__":
                         help='Align pdfs to right edge of the page, don\'t do any cropping',
                         dest='left_align_only', action='store_true')
     args = parser.parse_args()
-    files = getSubFiles(args.filename)
+    files = getSubFiles([args.filename])
+    print(files)
     docs = openDocuments(files)
     if args.right_align_only:
         for path, doc in zip(files, docs):
+            print(f"right align {path}")
             saveDocument(rightAlign(doc), path)
     elif args.left_align_only:
         for path, doc in zip(files, docs):
