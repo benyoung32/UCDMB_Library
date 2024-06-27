@@ -29,8 +29,9 @@ class Packet:
     '''This class defines a set of songs and parts, with a mapping between each part
     and its corresponding PDF for each song. This is used to build 'packets' which 
     can be printed and distributed.'''
-    def __init__(self, parts: list[Part], filepaths: dict[Part, list[str]]) -> None:
+    def __init__(self, parts: list[Part], filepaths: dict[Part, list[str]], combined_name: str = "all_parts") -> None:
         self.parts = parts
+        self.combined_name = combined_name
         # self.folders = folders
         self.unique_parts = getUniqueParts(parts)
         self.instrument_groups = groupInstruments(self.parts)
@@ -76,6 +77,7 @@ class Packet:
                 if (group[0].instrument == p.instrument):
                     sorted.append(group)
         self.instrument_groups = sorted
+    
     def buildDocument(self) -> fitz.Document:
         final_combined_doc = fitz.Document()
 
@@ -97,13 +99,15 @@ class Packet:
                     # some parts may be missing some documents
                     # if i > len(self.docs[part]): break
                     
+                    # insert full page pdf for drums instead of only top half
                     if part in DRUMS:
                         for i in range(self.getSongCount()):
+                            if (i >= len(self.docs[part])): break
                             for _ in range(self.parts.count(part)):
                                 final_combined_doc.insert_pdf(self.docs[part][i])
                         continue
                     
-                    # imgs = topHalfPixmaps([self.docs[part][i]])
+                    # 
                     imgs = topHalfPixmaps(self.docs[part])
                     for _ in range(self.parts.count(part)):
                         for img in imgs:
@@ -139,14 +143,17 @@ class Packet:
     def saveGroupPartDocs(self, output_folder: str) -> None:
         for group in self.instrument_groups:
             for part in group:
-                all_docs = []
-                docs = self.docs[part]
-                for doc in docs:
-                    if doc not in all_docs: all_docs.append(doc)
-                if (all_docs == []): continue
-                combined_doc = reader.combineDocuments(all_docs)
-                new_filepath = output_folder + '\\' + str(part) + ".pdf"
-                reader.saveDocument(combined_doc, new_filepath, '', close = False)
+                sub_packet = Packet([part], self.filepaths, str(part))
+                reader.saveDocument(sub_packet.buildDocument(), 
+                                    output_folder + "\\" + str(part) + '.pdf', prefix = '')
+                # all_docs = []
+                # docs = self.docs[part]
+                # for doc in docs:
+                #     if doc not in all_docs: all_docs.append(doc)
+                # if (all_docs == []): continue
+                # combined_doc = reader.combineDocuments(all_docs)
+                # new_filepath = output_folder + '\\' + str(part) + ".pdf"
+                # reader.saveDocument(combined_doc, new_filepath, '', close = False)
 
     def moveFiles(self, output_folder:str):
         for p in self.parts:
@@ -257,9 +264,9 @@ def findPartFiles(folder_paths:list[str],parts:list[Part]) -> dict[Part, list[st
     part_dict = {}
     # iterate over subfolders
     for path in folder_paths:
-        folders = reader.getSubFolders(path)
+        folders = reader.getSubFolders([path])
     for folder in folders:
-        files = reader.getSubFiles(folder, [],ignore_prefix= None, recursive=False)
+        files = reader.getSubFiles([folder], [],ignore_prefix= None, recursive=False)
         if len(files) == 0: # no files found
             print("no pdf files found: " + os.path.basename(os.path.normpath(folder)))
             continue
@@ -340,6 +347,7 @@ if __name__ == "__main__":
         parts = my_file.readFile(args.parts)
         parts = [Part(s) for s in parts if s != ERROR_PART]
         folders = my_file.readFile(args.folders)
+        print(folders)
         filepaths = findPartFiles(folders, parts)
         packet = Packet(parts, filepaths)
         packet.saveGroupJSON(output_folder + "\\groups.json")

@@ -1,7 +1,7 @@
 import argparse
-import shutil
 import sys
 import os
+
 import pdf_reader as reader
 import crop_tool as crop
 import pdf_grouper as grouper

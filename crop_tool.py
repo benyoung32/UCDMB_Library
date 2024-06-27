@@ -216,11 +216,11 @@ class CropTool(tk.Toplevel):
     def applyCropToFolder(self) -> None:
         ''' apply current settings to the folder where the sample came from '''
         folder= os.path.dirname(self.filepath)
-        files = reader.getSubFiles(folder)
+        files = reader.getSubFiles([folder])
         reader.openCropSaveDocs(files, reader.prefix, **self.getSettingsDict())
     
     def applyCropToFile(self) -> None:
-        reader.openCropSaveDocs(self.filepath, reader.prefix, **self.getSettingsDict())
+        reader.openCropSaveDocs([self.filepath], reader.prefix, **self.getSettingsDict())
     
     # get rotation from entry box, sanitize input
     def getRotation(self) -> int:

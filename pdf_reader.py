@@ -78,8 +78,8 @@ def openCropSaveDocs(filepaths: list[str], prefix:str = prefix,
     :param kwargs: Kwargs to be passed along to :func:`pdf_reader.createCroppedDocument`
     :return: Returns list of paths for the newly created pdf files
     '''
-    if not type(filepaths) == list:
-        filepaths = [filepaths]
+    # if not type(filepaths) == list:
+    #     filepaths = [filepaths]
     new_files = []
     docs = openDocuments(filepaths, size='letter')
     new_folder = os.path.dirname(filepaths[0]) + '\\Printable Parts'
