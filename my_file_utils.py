@@ -1,4 +1,6 @@
 import tkinter as tk
+import os
+import glob
 
 def printDict(dict):
     '''
@@ -27,16 +29,15 @@ def readFile(filepath:str) -> list[str]:
     :param filepath: file to read
     :return: A list containing each line of the file at filepath
     '''
-    reqs = []
-    # print(filepath)
+    lines = []
+    print(filepath)
     with open(filepath) as file:
         while line := file.readline():
             line = line.strip()
             line = line.strip("\'\"")
-            # print(line)
-            reqs.append(line.strip())
+            lines.append(line.strip())
         file.close()
-    return reqs
+    return lines
 
 def openFolder() -> str: 
     '''
@@ -50,3 +51,45 @@ def openFolder() -> str:
     # return filepath
     return answer
 
+
+def getSubFiles(paths: list[str], files:list[str] = [], 
+                ignore_prefix:str = 'p_', recursive:bool = True) -> list[str]:
+    '''
+    For each path in paths, append pdf path to files list. 
+    If path is a folder, also apend all paths within folder.
+    If recursive is true, check folders within folders
+    Ignore any paths that contain ignore_prefix
+    :param paths: Paths to search
+    :param files: Currently found files (for recursion)
+    :param ignore_prefix: Ignore any files containing this substring
+    :param recursive: If true, recurse into subfolders as well 
+    :return: List of pdf files found
+    '''
+    for f in paths:
+        if os.path.exists(f):
+            if os.path.isdir(f):
+                if recursive:
+                    getSubFiles(glob.glob(f + "/*"), files, ignore_prefix)
+                else:
+                    getSubFiles(glob.glob(f + '/*.pdf'),files, ignore_prefix)
+            if '.pdf' in f and (not ignore_prefix or ignore_prefix not in f):
+                files.append(f)
+    return files
+
+def getSubFolders(folderpaths: list[str], folders: list[str] = []) -> list[str]:
+    '''
+    Search through each path in folderpaths for subfolders.
+    Append subfolders to folders list, and recursively search subfolders
+    See also, getSubFiles
+    :param folderpaths: list of folders to search throuhg
+    :param folders: list of folders found already (for recursion)
+    :return: List of found folder paths
+    '''
+    for f in folderpaths:
+        if os.path.exists(f):
+            if os.path.isdir(f):
+                folders.append(f)
+                getSubFolders(glob.glob(f + "/*"), folders)
+        else:
+            print(f, '- invalid path')
+    return folders

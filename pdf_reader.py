@@ -1,4 +1,5 @@
-import pdf_grouper as grouper   
+import pdf_grouper as grouper  
+import my_file_utils as utils 
 import part as part
 import fitz
 import fitz.fitz
@@ -20,48 +21,6 @@ def main(filename:str = 'pdfs', **kwargs) -> None:
     print('found:')
     print(files)
     openCropSaveDocs(files, **kwargs)
-
-def getSubFiles(paths: list[str], files:list[str] = [], 
-                ignore_prefix:str = prefix, recursive:bool = True) -> list[str]:
-    '''
-    For each path in paths, append pdf path to files list. 
-    If path is a folder, also apend all paths within folder.
-    If recursive is true, check folders within folders
-    Ignore any paths that contain ignore_prefix
-    :param paths: Paths to search
-    :param files: Currently found files (for recursion)
-    :param ignore_prefix: Ignore any files containing this substring
-    :param recursive: If true, recurse into subfolders as well 
-    :return: List of pdf files found
-    '''
-    for f in paths:
-        if os.path.exists(f):
-            if os.path.isdir(f):
-                if recursive:
-                    getSubFiles(glob.glob(f + "/*"), files, ignore_prefix)
-                else:
-                    getSubFiles(glob.glob(f + '/*.pdf'),files, ignore_prefix)
-            if '.pdf' in f and (not ignore_prefix or ignore_prefix not in f):
-                files.append(f)
-    return files
-
-def getSubFolders(folderpaths: list[str], folders: list[str] = []) -> list[str]:
-    '''
-    Search through each path in folderpaths for subfolders.
-    Append subfolders to folders list, and recursively search subfolders
-    See also, getSubFiles
-    :param folderpaths: list of folders to search throuhg
-    :param folders: list of folders found already (for recursion)
-    :return: List of found folder paths
-    '''
-    for f in folderpaths:
-        if os.path.exists(f):
-            if os.path.isdir(f):
-                folders.append(f)
-                getSubFolders(glob.glob(f + "/*"), folders)
-        else:
-            print('invalid path')
-    return folders
 
 def openCropSaveDocs(filepaths: list[str], prefix:str = prefix, 
                 auto_expand:bool = True, **kwargs) -> list:
@@ -141,7 +100,7 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
                 insertFullPageImage(page, src_pix)
                 page.set_cropbox(fitz.Rect(left_mg, (r.y1 / 2) - top_mg, r.x1 - right_mg, r.y1-bottom_mg))
                 src_pix2 = page.get_pixmap(dpi = 300,colorspace='GRAY')
-                new_page2 = doc.new_page()
+                new_page2 = doc.new_page(width=FORMAT.width, height=FORMAT.height)
                 insertFullPageImage(new_page2, src_pix2)
             else:
                 insertImage(new_page, src_pix, rotate=rotate,right_align=right_align)
@@ -177,12 +136,13 @@ def insertImage(page, src_pix, right_align = False, **kwargs) -> None:
     
 def rightAlign(doc: fitz.Document) -> fitz.Document:
     out_doc = fitz.Document(rect=FORMAT)
+    # print(FORMAT)
     for page in doc:
         r = page.mediabox
         croprect = fitz.Rect(0, 0, r.x1 * CW, r.y1)
         page.set_cropbox(croprect)
         page_pixmap = page.get_pixmap(dpi = 300)
-        out_page = out_doc.new_page()
+        out_page = out_doc.new_page(width=FORMAT.width, height=FORMAT.height)
         out_page.insert_image(fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1),
                               pixmap=page_pixmap)
     return out_doc
@@ -194,7 +154,7 @@ def leftAlign(doc:fitz.Document) -> fitz.Document:
         croprect = fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1)
         page.set_cropbox(croprect)
         page_pixmap = page.get_pixmap(dpi = 300)
-        out_page = out_doc.new_page()
+        out_page = out_doc.new_page(width=FORMAT.width, height=FORMAT.height)
         out_page.insert_image(fitz.Rect(0, 0, r.x1 * CW, r.y1),
                               pixmap=page_pixmap)
     return out_doc
@@ -221,11 +181,17 @@ def openDocuments(filenames: list[str], right_align:bool = False, size:str = Non
     filenames = [file for file in filenames if os.path.exists(file)]    
     out = []
     for filename in filenames:
-        doc = fitz.open(filename)
-        if size:
-            doc = resizeDocument(doc, size)
-        if right_align:
-            doc = rightAlign(doc)
+        try:
+            doc = fitz.open(filename)
+        except:
+            print("unable to open file: ", filename)
+            print(fitz.TOOLS.mupdf_warnings())
+            sys.exit(":(")
+            doc = None
+        # if size:
+        #     doc = resizeDocument(doc, size)
+        # if right_align:
+        #     doc = rightAlign(doc)
         out.append(doc)
     return out
 
@@ -283,13 +249,13 @@ if __name__ == "__main__":
                         help='Align pdfs to right edge of the page, don\'t do any cropping',
                         dest='left_align_only', action='store_true')
     args = parser.parse_args()
-    files = getSubFiles([args.filename])
+    files = utils.getSubFiles([args.filename], ignore_prefix=None)
     print(files)
     docs = openDocuments(files)
     if args.right_align_only:
         for path, doc in zip(files, docs):
             print(f"right align {path}")
-            saveDocument(rightAlign(doc), path)
+            saveDocument(rightAlign(doc), path, prefix = 'fp_')
     elif args.left_align_only:
         for path, doc in zip(files, docs):
             saveDocument(leftAlign(doc), path)

@@ -32,7 +32,6 @@ for k,v in alias.items():
         alias_flat.append(s)
 
 class Part:
-
     def __init__(self, raw_string: str) -> None:
         '''
         Finds a matching standardized part name from input part 
@@ -74,21 +73,26 @@ class Part:
             print('NO PART NAME FOUND FOR:', raw_string, file=sys.stderr)
             return
         
-    def __key(self) -> tuple[str | Any, str, str]:
-        return (self.instrument, self.number, self.key)
+    def __key(self) -> tuple[str | Any, str]:
+        return (self.instrument, self.number)
+
     def __hash__(self) -> int:
         return hash(self.__key())
+
     def __lt__(self, other) -> bool:
         return str(self) < str(other)
         
     def __eq__(self, other) -> bool:
-        return str(self) == str(other)
-    
+        return str(self) == str(other)    
+
     def __str__(self) -> str:
-        if self.key: out = ' '.join([self.key, self.instrument]) 
-        else: out = self.instrument
+        # if self.key: out = ' '.join([self.key, self.instrument]) 
+        out = self.instrument
         if self.number != '0': out += ' ' + self.number
-        return out.title()
+        return out.title().strip()
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
 def getPartFromFilepath(input:str) -> Part:
     '''

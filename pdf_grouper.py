@@ -7,10 +7,10 @@ import json
 import os
 import argparse
 import sys
-import my_file_utils as my_file
+import my_file_utils as utils
 from part import *
 
-ERROR_PATH = 'no_match' 
+PATH_ERROR = 'no_match' 
 folderlist = ""
 files = None
 
@@ -40,7 +40,7 @@ class Packet:
         self.drums = [part for part in self.unique_parts if part in DRUMS]
         
         self.filepaths = filepaths
-        self.docs = openFiles(self.unique_parts, self.filepaths)
+        # self.docs = openFiles(self.unique_parts, self.filepaths)
         return
     
     def saveGroupJSON(self, out_filepath = "groups.json") -> None:
@@ -85,51 +85,55 @@ class Packet:
         page = 0
         top = True
         w, h = fitz.paper_rect('letter').width, fitz.paper_rect('letter').height
-        final_combined_doc.new_page(width = w, height = h)
+        final_combined_doc.new_page(width = w, height = h) # type: ignore
 
         top_rect = final_combined_doc[0].bound()
         top_rect.y1 = top_rect.y1 / 2
         bot_rect = final_combined_doc[0].bound()
         bot_rect.y0 = bot_rect.y1 / 2
         r = top_rect
-
+        print("building ...")
         for group in self.instrument_groups:
-            # for i in range(self.getSongCount()):
-                for part in group:
-                    # some parts may be missing some documents
-                    # if i > len(self.docs[part]): break
-                    
-                    # insert full page pdf for drums instead of only top half
-                    if part in DRUMS:
-                        for i in range(self.getSongCount()):
-                            if (i >= len(self.docs[part])): break
-                            for _ in range(self.parts.count(part)):
-                                final_combined_doc.insert_pdf(self.docs[part][i])
-                        continue
-                    
-                    # 
-                    imgs = topHalfPixmaps(self.docs[part])
-                    for _ in range(self.parts.count(part)):
-                        for img in imgs:
-                            final_combined_doc[page].insert_image(r, pixmap=img) # type: ignore
-                            print(part, page)
-                            page += 1
-                            if page > final_page_count - 1:
-                                top = False
-                                page = 0
-                                r = bot_rect
-                            if top: final_combined_doc.new_page(width = w, height = h)
-
+            for part in group:
+                docs = self.getPartDocs(part)
+                
+                # insert full page pdf for drums instead of only top half
+                if part in DRUMS:
+                    for i in range(self.getSongCount()):
+                        if (i >= len(docs)): break
+                        for _ in range(self.parts.count(part)):
+                            final_combined_doc.insert_pdf(docs[i])
+                    continue
+                print(docs)
+                imgs = topHalfPixmaps(docs)
+                for _ in range(self.parts.count(part)):
+                    for img in imgs:
+                        print(part, page)
+                        final_combined_doc[page].insert_image(r, pixmap=img) # type: ignore
+                        page += 1
+                        
+                        if page > final_page_count - 1:
+                            top = False
+                            page = 0
+                            r = bot_rect
+                        
+                        if top: final_combined_doc.new_page(width = w, height = h) # type: ignore
+                for doc in docs:
+                    doc.close()
         return final_combined_doc
 
     def getSongCount(self) -> int:
         return max(len(docs) for docs in self.docs.values())
 
+    def getPartDocs(self, part) -> list[fitz.Document]:
+        return reader.openDocuments(self.filepaths[part])
+
     def getNonDrumPageCount(self) -> int:
         page_count = 0
         for part in self.non_drums:
-            for doc in self.docs[part]:
+            for doc in self.getPartDocs(part):
                 page_count += 0.5 * doc.page_count * self.parts.count(part)
+            
         return ceil(page_count)
 
     def saveUniqueParts(self, output_path = 'all parts.pdf'):
@@ -140,25 +144,21 @@ class Packet:
                 final_doc.insert_pdf(doc)
         reader.saveDocument(final_doc,output_path, '')
 
-    def saveGroupPartDocs(self, output_folder: str) -> None:
+    def saveGroupPartDocs(self, output_folder: str, compressed = False) -> None:
         for group in self.instrument_groups:
             for part in group:
                 sub_packet = Packet([part], self.filepaths, str(part))
-                reader.saveDocument(sub_packet.buildDocument(), 
-                                    output_folder + "\\" + str(part) + '.pdf', prefix = '')
-                # all_docs = []
-                # docs = self.docs[part]
-                # for doc in docs:
-                #     if doc not in all_docs: all_docs.append(doc)
-                # if (all_docs == []): continue
-                # combined_doc = reader.combineDocuments(all_docs)
-                # new_filepath = output_folder + '\\' + str(part) + ".pdf"
-                # reader.saveDocument(combined_doc, new_filepath, '', close = False)
+                if compressed:
+                    reader.saveDocument(sub_packet.buildDocument(), 
+                                        output_folder + "\\" + str(part) + '.pdf', prefix = '')                    
+                else:
+                    reader.saveDocument(reader.combineDocuments(self.getPartDocs(part)),
+                                        output_folder + "\\" + str(part) + '.pdf', prefix = '')
 
-    def moveFiles(self, output_folder:str):
+    def moveFilesByPart(self, output_folder:str):
         for p in self.parts:
             files = self.filepaths[p]
-            files = [file for file in files if file != ERROR_PATH]
+            files = [file for file in files if file != PATH_ERROR]
             part_name = str(p)
             new_folder = output_folder + '\\' + part_name
             try:
@@ -168,6 +168,35 @@ class Packet:
             i = 1
             for file in files:
                 shutil.copy(file, new_folder + '\\' + os.path.basename(file))
+
+    def moveFilesBySong(self, output_folder:str) -> None:
+        for part in self.parts:
+            for path in self.filepaths[part]:
+                if path == PATH_ERROR: continue
+                subdirname = os.path.basename(os.path.dirname(path))
+                new_folder = output_folder + '\\' + subdirname
+                # print(new_folder)
+                try:
+                    os.mkdir(new_folder)
+                except:
+                    # print('folder already exists')
+                    pass
+                
+                old_names = {
+                    Part("flute"): "Piccolo-Flute",
+                    Part("alto sax 1"): "Alto Sax 1",
+                    Part("alto sax 2"): "Alto Sax 2",
+                    Part("bari sax"): "Bari Sax",
+                    Part("Baritone BC"): "Baritone BC",
+                    Part("Glock"): "Glock",
+                    Part("Tenor sax"): "Tenor Sax"
+                }
+
+                if part in old_names.keys():
+                    name = old_names[part]
+                else:
+                    name = part.__str__()
+                shutil.copy(path, new_folder + '\\' + subdirname + " - " + name + ".pdf")
 
 def getUniqueParts(parts: list[Part]):
     unique_parts = list(set(parts))
@@ -185,7 +214,7 @@ def openFiles(parts: list[Part],
         # skip repeats
         if part not in docs:
             files = filepaths[part]
-            files = [file for file in files if file != ERROR_PATH]
+            files = [file for file in files if file != PATH_ERROR]
             docs[part] = reader.openDocuments(files)
     return docs
 
@@ -214,28 +243,15 @@ def groupInstruments(parts: list[Part]) -> list[list[Part]]:
     if group != []: instrument_groups.append(group)
     return instrument_groups
 
-def main(folders: list[str], parts: list[Part], output_folder:str, combine:bool = False, move:bool = False) -> None:
-    '''
-    Find all files corresponding to each part in parts in dir and its subdirs.
-    Output results to output path, should be a folder. 
-    :param dir: directory to search, including subdirs
-    :param parts: list of parts to search for
-    :param output: filepath of output folder
-    :pararm combine: If true, combine all found parts into one pdf
-    :param move: If true, move all found part files into one folder per part
-    :return: None
-    '''
-    # unique_parts = getUniqueParts(parts)
-    # filepaths = findPartFiles(folders, unique_parts)
-    # packet = Packet(parts, filepaths)
-    # part_doc_dict = openFiles(unique_parts, filepaths)
-    # packet.combineAndSavePartDocs(output_folder)
-    # if move: packet.moveFiles(output_folder)
-    # json_output = output_folder + '\\groups.json'
-    # packet.saveGroupJSON(json_output)
-    # packet.combineUniqueParts(output_folder + '\\all_parts' + '.pdf')
-    # final_packet = loadJSON(json_output)
-    # reader.saveDocument(packet.buildDocument(), output_folder + '\\all_parts' + '.pdf', '')
+def getPageTopHalf(page: fitz.Page) -> fitz.Pixmap:
+    r = page.bound()
+    r.y1 /= 2
+    page.set_cropbox(r)
+    out = (page.get_pixmap(dpi=300))
+    r.y1 *= 2
+    page.set_cropbox(r)
+    return out
+
 
 def topHalfPixmaps(docs: list[fitz.Document]) -> list[fitz.Pixmap]:
     out = []
@@ -243,12 +259,7 @@ def topHalfPixmaps(docs: list[fitz.Document]) -> list[fitz.Pixmap]:
         docs = [docs] # type: ignore
     for doc in docs:
         for page in doc:
-            r = page.bound()
-            r.y1 /= 2
-            page.set_cropbox(r)
-            out.append(page.get_pixmap(dpi=300))
-            r.y1 *= 2
-            page.set_cropbox(r)
+            getPageTopHalf(page)
     return out 
 
 def findPartFiles(folder_paths:list[str],parts:list[Part]) -> dict[Part, list[str]]:
@@ -264,9 +275,9 @@ def findPartFiles(folder_paths:list[str],parts:list[Part]) -> dict[Part, list[st
     part_dict = {}
     # iterate over subfolders
     for path in folder_paths:
-        folders = reader.getSubFolders([path])
+        folders = utils.getSubFolders([path])
     for folder in folders:
-        files = reader.getSubFiles([folder], [],ignore_prefix= None, recursive=False)
+        files = utils.getSubFiles([folder], [],ignore_prefix= None, recursive=False)
         if len(files) == 0: # no files found
             print("no pdf files found: " + os.path.basename(os.path.normpath(folder)))
             continue
@@ -289,9 +300,11 @@ def createPartDictFromPaths(paths:list[str], parts:list[Part]) -> dict[Part,str]
     '''
     part_path_dict = {}
     found_parts = {}
+    # build dict mapping the part of each filepath
     for path in paths:
         part = getPartFromFilepath(path)
         part_path_dict[part] = path
+    # find matches for each requested part
     for part in parts:
         # no part number specified, return all parts
         found_parts[part] = []
@@ -302,16 +315,18 @@ def createPartDictFromPaths(paths:list[str], parts:list[Part]) -> dict[Part,str]
             if try_part in part_path_dict.keys():
                 found_parts[part].append(part_path_dict[try_part]) 
                 if not part.number == str(0): break
+        
         # nothing was found
         if found_parts[part] == []:
             print('|| WARNING || no file found for:', part,
                     'in folder:','\"' + os.path.dirname(os.path.normpath(paths[0])) + '\"')
-            found_parts[part] = ERROR_PATH
+            found_parts[part] = PATH_ERROR
+    
     return found_parts
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(sys.argv[0])
-    parser.add_argument('folders',type=str,nargs='?', default = '',
+    parser.add_argument('songs',type=str,nargs='?', default = '',
                         help = '''Filepath to text file containing on 
                         each line a folder to search through for files matching to 
                         parts contained in the parts file.
@@ -341,18 +356,19 @@ if __name__ == "__main__":
     if args.json_path:
         packet = loadJSON(args.json_path)
     else:
-        if (args.folders == '' or args.parts ==''):
+        if (args.songs == '' or args.parts ==''):
             parser.print_help()
             raise Exception("Folder paths and parts list is required if no JSON was provided")
-        parts = my_file.readFile(args.parts)
+        parts = utils.readFile(args.parts)
         parts = [Part(s) for s in parts if s != ERROR_PART]
-        folders = my_file.readFile(args.folders)
-        print(folders)
-        filepaths = findPartFiles(folders, parts)
+        songs = utils.readFile(args.songs)
+        
+        filepaths = findPartFiles(songs, parts)
         packet = Packet(parts, filepaths)
         packet.saveGroupJSON(output_folder + "\\groups.json")
-    
+        # packet.moveFilesBySong(output_folder + "\\songs")
+
     if args.combine: 
         reader.saveDocument(packet.buildDocument(), output_folder + "\\all_parts.pdf", prefix = '')
-    if args.move: packet.moveFiles(output_folder)
-    packet.saveGroupPartDocs(output_folder)
+    if args.move: packet.moveFilesByPart(output_folder)
+    packet.saveGroupPartDocs(output_folder,compressed= False)

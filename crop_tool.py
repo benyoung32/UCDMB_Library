@@ -7,6 +7,7 @@ from typing import Any, Callable
 import fitz
 from fontTools.ttLib.tables.S__i_l_f import Pass
 import pdf_reader as reader
+import my_file_utils as utils
 from PIL import Image,ImageTk
 MYFONT = ('Arial',16)
 PADDING = 10
@@ -216,7 +217,7 @@ class CropTool(tk.Toplevel):
     def applyCropToFolder(self) -> None:
         ''' apply current settings to the folder where the sample came from '''
         folder= os.path.dirname(self.filepath)
-        files = reader.getSubFiles([folder])
+        files = utils.getSubFiles([folder])
         reader.openCropSaveDocs(files, reader.prefix, **self.getSettingsDict())
     
     def applyCropToFile(self) -> None:
