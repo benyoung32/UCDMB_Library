@@ -1,5 +1,7 @@
 from math import ceil
 import shutil
+
+from sympy import false
 import pdf_reader as reader
 import tkinter as tk
 import fitz
@@ -79,17 +81,16 @@ class Packet:
         self.instrument_groups = sorted
     
     def buildDocument(self) -> fitz.Document:
-        final_combined_doc = fitz.Document()
-
-        final_page_count = self.getNonDrumPageCount()
+        combined_doc = fitz.Document()
+        total_page_count = self.getNonDrumPageCount()
         page = 0
         top = True
-        w, h = fitz.paper_rect('letter').width, fitz.paper_rect('letter').height
-        final_combined_doc.new_page(width = w, height = h) # type: ignore
+        w, h = reader.FORMAT.width, reader.FORMAT.height
+        combined_doc.new_page(width = w, height = h) # type: ignore
 
-        top_rect = final_combined_doc[0].bound()
+        top_rect = combined_doc[0].bound()
         top_rect.y1 = top_rect.y1 / 2
-        bot_rect = final_combined_doc[0].bound()
+        bot_rect = combined_doc[0].bound()
         bot_rect.y0 = bot_rect.y1 / 2
         r = top_rect
         print("building ...")
@@ -102,30 +103,30 @@ class Packet:
                     for i in range(self.getSongCount()):
                         if (i >= len(docs)): break
                         for _ in range(self.parts.count(part)):
-                            final_combined_doc.insert_pdf(docs[i])
+                            combined_doc.insert_pdf(docs[i])
                     continue
-                print(docs)
+
                 imgs = topHalfPixmaps(docs)
                 for _ in range(self.parts.count(part)):
                     for img in imgs:
                         print(part, page)
-                        final_combined_doc[page].insert_image(r, pixmap=img) # type: ignore
+                        combined_doc[page].insert_image(r, pixmap=img) # type: ignore
                         page += 1
                         
-                        if page > final_page_count - 1:
+                        if page > total_page_count - 1:
                             top = False
                             page = 0
                             r = bot_rect
                         
-                        if top: final_combined_doc.new_page(width = w, height = h) # type: ignore
+                        if top: combined_doc.new_page(width = w, height = h) # type: ignore
                 for doc in docs:
                     doc.close()
-        return final_combined_doc
+        return combined_doc
 
     def getSongCount(self) -> int:
         return max(len(docs) for docs in self.docs.values())
 
-    def getPartDocs(self, part) -> list[fitz.Document]:
+    def getPartDocs(self, part: Part) -> list[fitz.Document]:
         return reader.openDocuments(self.filepaths[part])
 
     def getNonDrumPageCount(self) -> int:
@@ -133,6 +134,7 @@ class Packet:
         for part in self.non_drums:
             for doc in self.getPartDocs(part):
                 page_count += 0.5 * doc.page_count * self.parts.count(part)
+                doc.close()
             
         return ceil(page_count)
 
@@ -144,16 +146,16 @@ class Packet:
                 final_doc.insert_pdf(doc)
         reader.saveDocument(final_doc,output_path, '')
 
-    def saveGroupPartDocs(self, output_folder: str, compressed = False) -> None:
+    def getGroupPartDocs(self, compressed = False) -> dict[Part, fitz.Document]:
+        out = {}
         for group in self.instrument_groups:
             for part in group:
                 sub_packet = Packet([part], self.filepaths, str(part))
                 if compressed:
-                    reader.saveDocument(sub_packet.buildDocument(), 
-                                        output_folder + "\\" + str(part) + '.pdf', prefix = '')                    
+                    out[part] = sub_packet.buildDocument()
                 else:
-                    reader.saveDocument(reader.combineDocuments(self.getPartDocs(part)),
-                                        output_folder + "\\" + str(part) + '.pdf', prefix = '')
+                    out[part] = reader.combineDocuments(self.getPartDocs(part))
+        return out
 
     def moveFilesByPart(self, output_folder:str):
         for p in self.parts:
@@ -206,7 +208,7 @@ def getUniqueParts(parts: list[Part]):
     unique_parts = [part for part in unique_parts if part not in drum_parts]
     unique_parts.extend(drum_parts)
     return unique_parts
-
+    
 def openFiles(parts: list[Part], 
               filepaths: dict[Part, list[str]]) -> dict[Part, list[fitz.Document]]:
     docs = {}
@@ -247,7 +249,7 @@ def getPageTopHalf(page: fitz.Page) -> fitz.Pixmap:
     r = page.bound()
     r.y1 /= 2
     page.set_cropbox(r)
-    out = (page.get_pixmap(dpi=300))
+    out = (page.get_pixmap(dpi=300)) # type: ignore
     r.y1 *= 2
     page.set_cropbox(r)
     return out
@@ -255,11 +257,9 @@ def getPageTopHalf(page: fitz.Page) -> fitz.Pixmap:
 
 def topHalfPixmaps(docs: list[fitz.Document]) -> list[fitz.Pixmap]:
     out = []
-    if type(docs) is not list:
-        docs = [docs] # type: ignore
     for doc in docs:
         for page in doc:
-            getPageTopHalf(page)
+            out.append(getPageTopHalf(page))
     return out 
 
 def findPartFiles(folder_paths:list[str],parts:list[Part]) -> dict[Part, list[str]]:
@@ -325,6 +325,12 @@ def createPartDictFromPaths(paths:list[str], parts:list[Part]) -> dict[Part,str]
     return found_parts
 
 if __name__ == "__main__":
+    files = utils.getSubFiles(["pdfs\\folder"], recursive=false)
+    for file in files:
+        test = fitz.open(file)
+        reader.addPageNumbers(test, start = 1)
+        reader.saveDocument(test, "pdfs\\folder\\pagenums\\" + os.path.basename(file), prefix = '')
+    os.sysexit()
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('songs',type=str,nargs='?', default = '',
                         help = '''Filepath to text file containing on 
@@ -371,4 +377,9 @@ if __name__ == "__main__":
     if args.combine: 
         reader.saveDocument(packet.buildDocument(), output_folder + "\\all_parts.pdf", prefix = '')
     if args.move: packet.moveFilesByPart(output_folder)
-    packet.saveGroupPartDocs(output_folder,compressed= False)
+    compress = True
+    group_docs = packet.getGroupPartDocs(compressed= compress)
+    for part, doc in group_docs.items():
+        addPageNumbers(doc, compress, start = 1)
+        reader.saveDocument(doc, output_folder + "\\" + str(part) + '.pdf', prefix = '')
+    

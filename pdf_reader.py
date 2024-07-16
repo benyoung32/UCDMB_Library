@@ -15,14 +15,13 @@ CW = 0.85 # cropped width
 
 def main(filename:str = 'pdfs', **kwargs) -> None:
     '''
-    Main function. Opens filenames, passes kwargs to processDocs
+    Main function. Opens filenames, passes kwargs to processing functoins
     '''
     files = getSubFiles([filename])
-    print('found:')
-    print(files)
+    print('found:', files)
     openCropSaveDocs(files, **kwargs)
 
-def openCropSaveDocs(filepaths: list[str], prefix:str = prefix, 
+def openCropSaveDocs(filepaths: list[str], 
                 auto_expand:bool = True, **kwargs) -> list:
     '''
     Primarily wrapper for :func:`pdf_reader.duplicateAndScale`
@@ -31,14 +30,11 @@ def openCropSaveDocs(filepaths: list[str], prefix:str = prefix,
     :func:`pdf_reader.createCroppedDocument` and args in kwargs. 
     Save altered file with 'prefix' inside new folder. 
     :param filenames: List of paths to pdfs that will be processed
-    :param prefix: string to append to beginning of altered filepath when saving
     :param auto_expand: If true, check if processed doc is in grouper.DRUMS
                         and should be expanded.
     :param kwargs: Kwargs to be passed along to :func:`pdf_reader.createCroppedDocument`
     :return: Returns list of paths for the newly created pdf files
     '''
-    # if not type(filepaths) == list:
-    #     filepaths = [filepaths]
     new_files = []
     docs = openDocuments(filepaths, size='letter')
     new_folder = os.path.dirname(filepaths[0]) + '\\Printable Parts'
@@ -55,17 +51,23 @@ def openCropSaveDocs(filepaths: list[str], prefix:str = prefix,
                 print('expanding', Part)    
                 kwargs['expand'] = True
             else: kwargs['expand'] = False
-        alt = createCroppedDocument(doc, **kwargs)
+        cropped_doc = createCroppedDocument(doc, **kwargs)
         new_filename = new_folder + '\\' + os.path.basename(file)
-        saveDocument(alt, new_filename, prefix)
+        saveDocument(cropped_doc, new_filename, prefix = prefix)
         doc.close()
         new_files.append(new_filename)
     return new_files
 
+def splitTopBottom(doc: fitz.Document) -> fitz.Document:
+    out = fitz.Document(rect=FORMAT)
+    for page in doc:
+        r = page.bound()
+        doc.new_page(width = FORMAT.width, height = FORMAT.height) # type: ignore
+    return out
+
 def createCroppedDocument(src:fitz.Document, full_size:bool=False, 
                       expand:bool=False, two_in_one:bool=False,
-                      margins:list[int] = [0, 0, 0, 0], rotate = 0, 
-                      right_align:bool = False, **kwargs) -> fitz.Document:
+                      margins:list[int] = [0, 0, 0, 0], rotate = 0, **kwargs) -> fitz.Document:
     '''
     From source document 'src', crop the page according to 'margins' 
     and insert cropped page as image into output document. 
@@ -77,41 +79,20 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
                       or should the cropping begin from half of the page
     :param;
     '''
-    print(right_align)
     doc = fitz.Document(rect=FORMAT)  # create new empty doc
-    # unpack margin array
-    top_mg, left_mg, right_mg, bottom_mg = margins
-    fmt = fitz.paper_rect('letter')
-    
-    for page in src:  # process each page
+    top_mg, left_mg, right_mg, bottom_mg = margins     # unpack margin array
+    for page in src:
         page.set_rotation(0)  # make sure page has no rotation
-        # this will be the output page
-        new_page = doc.new_page(width = fmt.width, height = fmt.height)  
         r = page.mediabox
-        if full_size: # only use one
-            croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-bottom_mg)
+        new_page = doc.new_page(width = FORMAT.width, height = FORMAT.height) # type: ignore
+        if full_size: croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-bottom_mg)
+        else: croprect = fitz.Rect(r.x1 / 2 - top_mg, bottom_mg, r.x1 - right_mg, r.y1 - left_mg)
+        page.set_cropbox(fitz.Rect(croprect))
+        src_pix = page.get_pixmap(dpi = 300,colorspace='GRAY')  # type: ignore
+        if expand:
+            insertFullPageImage(new_page, src_pix)
         else:
-            croprect = fitz.Rect(r.x1 / 2 - top_mg, bottom_mg, r.x1 - right_mg, r.y1 - left_mg)
-        if two_in_one: # for duplicating ones that are already half size and two pages
-            # TODO: this is broke ;-;
-            page.set_cropbox(croprect)
-            src_pix = page.get_pixmap(dpi = 300)
-            if expand: 
-                insertFullPageImage(page, src_pix)
-                page.set_cropbox(fitz.Rect(left_mg, (r.y1 / 2) - top_mg, r.x1 - right_mg, r.y1-bottom_mg))
-                src_pix2 = page.get_pixmap(dpi = 300,colorspace='GRAY')
-                new_page2 = doc.new_page(width=FORMAT.width, height=FORMAT.height)
-                insertFullPageImage(new_page2, src_pix2)
-            else:
-                insertImage(new_page, src_pix, rotate=rotate,right_align=right_align)
-        else:
-            page.set_cropbox(fitz.Rect(croprect))
-            print(page.cropbox_position)
-            src_pix = page.get_pixmap(dpi = 300,colorspace='GRAY')
-            if expand:
-                insertFullPageImage(new_page, src_pix)
-            else:
-                insertImage(new_page, src_pix, rotate=rotate,right_align=right_align)
+            insertImage(new_page, src_pix, rotate=rotate)
     return doc 
 
 def insertFullPageImage(page, src_pix) -> None:
@@ -119,30 +100,21 @@ def insertFullPageImage(page, src_pix) -> None:
     page.set_rotation(90)
     page.insert_image(r, pixmap= src_pix, rotate = 90)
 
-def insertImage(page, src_pix, right_align = False, **kwargs) -> None:
+def insertImage(page, src_pix, **kwargs) -> None:
     r = page.bound()
-    top = fitz.Rect(0, 5, r.x1 * CW, r.y1 / 2 - 5)
-    bottom = fitz.Rect(0, r.y1 / 2 + 5, r.x1 * CW, r.y1 - 5)
-    if not right_align:
-        page.insert_image(fitz.Rect(0, 5, r.x1 * CW, r.y1 / 2 - 5),
-            pixmap= src_pix, **kwargs)
-        page.insert_image(fitz.Rect(0, r.y1 / 2 + 5, r.x1 * CW, r.y1 - 5), 
-            pixmap= src_pix, **kwargs)
-    else:
-        page.insert_image(fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1 / 2),
-            pixmap= src_pix, **kwargs)
-        page.insert_image(fitz.Rect(r.x1 * (1 - CW), r.y1 / 2, r.x1, r.y1), 
-                pixmap= src_pix, **kwargs)
-    
+    page.insert_image(fitz.Rect(0, 5, r.x1 * CW, r.y1 / 2 - 5),
+        pixmap= src_pix, **kwargs)
+    page.insert_image(fitz.Rect(0, r.y1 / 2 + 5, r.x1 * CW, r.y1 - 5), 
+        pixmap= src_pix, **kwargs)    
+
 def rightAlign(doc: fitz.Document) -> fitz.Document:
     out_doc = fitz.Document(rect=FORMAT)
-    # print(FORMAT)
     for page in doc:
         r = page.mediabox
         croprect = fitz.Rect(0, 0, r.x1 * CW, r.y1)
         page.set_cropbox(croprect)
-        page_pixmap = page.get_pixmap(dpi = 300)
-        out_page = out_doc.new_page(width=FORMAT.width, height=FORMAT.height)
+        page_pixmap = page.get_pixmap(dpi = 300) # type: ignore
+        out_page = out_doc.new_page(width=FORMAT.width, height=FORMAT.height)  # type: ignore
         out_page.insert_image(fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1),
                               pixmap=page_pixmap)
     return out_doc
@@ -208,6 +180,23 @@ def combineDocuments(docs: list[fitz.Document]) -> fitz.Document:
         out_doc.insert_pdf(doc)
     return out_doc
 
+def addPageNumbers(doc: fitz.Document, split = False, start = 0) -> None:
+    i = 0
+    page_size = doc[0].bound()
+    top_rect = fitz.Rect(page_size.x1 - 40, 15, page_size.x1 - 20, 50)
+    bot_rect = fitz.Rect(page_size.x1 - 40, 15 + page_size.y1 / 2, 
+                         page_size.x1 - 20, 50 + page_size.y1 / 2)
+    font = "TiRo"
+    for page in doc:
+        i += 1
+        if (i <= start): continue
+        pg = i - start
+        page.insert_textbox(top_rect, str(pg), fontname= font) # type: ignore
+        if split:
+            page.add_freetext_annot(bot_rect, str(pg + doc.page_count), fontname= font) # type: ignore
+        else:
+            page.add_freetext_annot(bot_rect, str(pg), fontname= font) # type: ignore
+
 def strtobool (val) -> bool:
     '''
     Convert a string representation of truth to true (1) or false (0).
@@ -261,7 +250,6 @@ if __name__ == "__main__":
             saveDocument(leftAlign(doc), path)
     elif (len(sys.argv) > 1):
         main(**vars(args))
-        # test(sys.argv[1])
     else:
         main()
     
