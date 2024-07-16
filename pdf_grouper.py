@@ -325,12 +325,12 @@ def createPartDictFromPaths(paths:list[str], parts:list[Part]) -> dict[Part,str]
     return found_parts
 
 if __name__ == "__main__":
-    files = utils.getSubFiles(["pdfs\\folder"], recursive=false)
-    for file in files:
-        test = fitz.open(file)
-        reader.addPageNumbers(test, start = 1)
-        reader.saveDocument(test, "pdfs\\folder\\pagenums\\" + os.path.basename(file), prefix = '')
-    os.sysexit()
+    # files = utils.getSubFiles(["pdfs\\folder"], recursive=false)
+    # for file in files:
+    #     test = fitz.open(file)
+    #     reader.addPageNumbers(test, start = 1)
+    #     reader.saveDocument(test, "pdfs\\folder\\pagenums\\" + os.path.basename(file), prefix = '')
+    # os.sysexit()
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('songs',type=str,nargs='?', default = '',
                         help = '''Filepath to text file containing on 
@@ -377,9 +377,9 @@ if __name__ == "__main__":
     if args.combine: 
         reader.saveDocument(packet.buildDocument(), output_folder + "\\all_parts.pdf", prefix = '')
     if args.move: packet.moveFilesByPart(output_folder)
-    compress = True
-    group_docs = packet.getGroupPartDocs(compressed= compress)
-    for part, doc in group_docs.items():
-        addPageNumbers(doc, compress, start = 1)
-        reader.saveDocument(doc, output_folder + "\\" + str(part) + '.pdf', prefix = '')
+    # compress = True
+    # group_docs = packet.getGroupPartDocs(compressed= compress)
+    # for part, doc in group_docs.items():
+    #     addPageNumbers(doc, compress, start = 1)
+    #     reader.saveDocument(doc, output_folder + "\\" + str(part) + '.pdf', prefix = '')
     

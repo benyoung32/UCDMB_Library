@@ -54,7 +54,7 @@ def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = Fals
                     break
                 last_pages[index] = b
         if not frozen:
-            template = cv.imread('.\\template.png.', cv.IMREAD_GRAYSCALE)
+            template = cv.imread('.\\part_config\\template.png', cv.IMREAD_GRAYSCALE)
             method = eval('cv.TM_CCOEFF_NORMED')
             for index, page in enumerate(doc):
                 if last_pages[index] == None:    
@@ -63,6 +63,7 @@ def splitPDFs(filename:str, output_names_filepath:str = None, simple:bool = Fals
                     last_pages[index] = isLastPage(img, template, method)
                     if from_part: part_file.write(getPartFromImage(img) + '\n')
                     print('page ', str(index), '...')   
+                    os.remove('temp2.png')
         if from_part: part_file.close()
         # print(filepath)
         try:

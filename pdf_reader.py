@@ -6,7 +6,6 @@ import fitz.fitz
 import argparse
 import sys
 import os
-import glob
 
 prefix = 'p_'
 FORMAT = fitz.paper_rect('letter')
@@ -17,7 +16,7 @@ def main(filename:str = 'pdfs', **kwargs) -> None:
     '''
     Main function. Opens filenames, passes kwargs to processing functoins
     '''
-    files = getSubFiles([filename])
+    files = utils.getSubFiles([filename])
     print('found:', files)
     openCropSaveDocs(files, **kwargs)
 
@@ -58,16 +57,21 @@ def openCropSaveDocs(filepaths: list[str],
         new_files.append(new_filename)
     return new_files
 
+def getPixmap(page, dpi = 300, colorscale="GRAY", **kwargs) -> fitz.Pixmap:
+    return page.get_pixmap(dpi = dpi, colorspace = colorscale, **kwargs)
+
 def splitTopBottom(doc: fitz.Document) -> fitz.Document:
     out = fitz.Document(rect=FORMAT)
     for page in doc:
         r = page.bound()
-        doc.new_page(width = FORMAT.width, height = FORMAT.height) # type: ignore
+        insertImageTopBottom(out.new_page(width = FORMAT.width, height = FORMAT.height), 
+                             getPixmap(page, clip = fitz.Rect(0, 0, r.x1*CW, r.y1 / 2)))
+        insertImageTopBottom(out.new_page(width=FORMAT.width,height=FORMAT.height), 
+                             getPixmap(page, clip = fitz.Rect(0, r.y1 / 2, r.x1*CW, r.y1)))
     return out
 
-def createCroppedDocument(src:fitz.Document, full_size:bool=False, 
-                      expand:bool=False, two_in_one:bool=False,
-                      margins:list[int] = [0, 0, 0, 0], rotate = 0, **kwargs) -> fitz.Document:
+def createCroppedDocument(src:fitz.Document, expand:bool=False,
+                          margins:list[int] = [0, 0, 0, 0]) -> fitz.Document:
     '''
     From source document 'src', crop the page according to 'margins' 
     and insert cropped page as image into output document. 
@@ -85,14 +89,15 @@ def createCroppedDocument(src:fitz.Document, full_size:bool=False,
         page.set_rotation(0)  # make sure page has no rotation
         r = page.mediabox
         new_page = doc.new_page(width = FORMAT.width, height = FORMAT.height) # type: ignore
-        if full_size: croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-bottom_mg)
-        else: croprect = fitz.Rect(r.x1 / 2 - top_mg, bottom_mg, r.x1 - right_mg, r.y1 - left_mg)
-        page.set_cropbox(fitz.Rect(croprect))
-        src_pix = page.get_pixmap(dpi = 300,colorspace='GRAY')  # type: ignore
+        croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-bottom_mg)
+        # if full_size: croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-bottom_mg)
+        # else: croprect = fitz.Rect(r.x1 / 2 - top_mg, bottom_mg, r.x1 - right_mg, r.y1 - left_mg)
+        page.set_cropbox(croprect)
+        src_pix = getPixmap(page)  # type: ignore
         if expand:
             insertFullPageImage(new_page, src_pix)
         else:
-            insertImage(new_page, src_pix, rotate=rotate)
+            insertImageTopBottom(new_page, src_pix)
     return doc 
 
 def insertFullPageImage(page, src_pix) -> None:
@@ -100,7 +105,7 @@ def insertFullPageImage(page, src_pix) -> None:
     page.set_rotation(90)
     page.insert_image(r, pixmap= src_pix, rotate = 90)
 
-def insertImage(page, src_pix, **kwargs) -> None:
+def insertImageTopBottom(page, src_pix, **kwargs) -> None:
     r = page.bound()
     page.insert_image(fitz.Rect(0, 5, r.x1 * CW, r.y1 / 2 - 5),
         pixmap= src_pix, **kwargs)
@@ -111,24 +116,20 @@ def rightAlign(doc: fitz.Document) -> fitz.Document:
     out_doc = fitz.Document(rect=FORMAT)
     for page in doc:
         r = page.mediabox
-        croprect = fitz.Rect(0, 0, r.x1 * CW, r.y1)
-        page.set_cropbox(croprect)
-        page_pixmap = page.get_pixmap(dpi = 300) # type: ignore
+        pix1 = getPixmap(page,clip = fitz.Rect(0, 0, r.x1 * CW, r.y1))
         out_page = out_doc.new_page(width=FORMAT.width, height=FORMAT.height)  # type: ignore
         out_page.insert_image(fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1),
-                              pixmap=page_pixmap)
+                              pixmap=pix1)
     return out_doc
 
 def leftAlign(doc:fitz.Document) -> fitz.Document:
     out_doc = fitz.Document(rect=FORMAT)
     for page in doc:
         r = page.mediabox
-        croprect = fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1)
-        page.set_cropbox(croprect)
-        page_pixmap = page.get_pixmap(dpi = 300)
+        pix1 = getPixmap(page, clip=fitz.Rect(r.x1 * (1 - CW), 0, r.x1, r.y1))
         out_page = out_doc.new_page(width=FORMAT.width, height=FORMAT.height)
-        out_page.insert_image(fitz.Rect(0, 0, r.x1 * CW, r.y1),
-                              pixmap=page_pixmap)
+        out_page.insert_image(fitz.Rect(0, 0, r.x1*CW, r.y1),
+                              pixmap=pix1)
     return out_doc
 
 def resizeDocument(src: fitz.Document, format:str = 'letter') -> fitz.Document:
@@ -136,34 +137,23 @@ def resizeDocument(src: fitz.Document, format:str = 'letter') -> fitz.Document:
     for ipage in src:
         if ipage.rect.width > ipage.rect.height:
             fmt = fitz.paper_rect(format)  # landscape if input suggests
-            # print(fmt)
-            # temp = fmt.width
             fmt = fitz.Rect(0,0,fmt.height, fmt.width)
-            # print(fmt)
-            # fmt.height = temp
         else:
             fmt = fitz.paper_rect(format)
         page = doc.new_page(width = fmt.width, height = fmt.height)
         page.show_pdf_page(page.rect, src, ipage.number)
     return doc
 
-def openDocuments(filenames: list[str], right_align:bool = False, size:str = None) -> list[fitz.Document]:
-    if not type(filenames) == list:
-        filenames = [filenames]
-    filenames = [file for file in filenames if os.path.exists(file)]    
+def openDocuments(filenames: list[str]) -> list[fitz.Document]:
     out = []
     for filename in filenames:
         try:
+            if not os.path.exists(filename): raise RuntimeError
             doc = fitz.open(filename)
         except:
             print("unable to open file: ", filename)
             print(fitz.TOOLS.mupdf_warnings())
             sys.exit(":(")
-            doc = None
-        # if size:
-        #     doc = resizeDocument(doc, size)
-        # if right_align:
-        #     doc = rightAlign(doc)
         out.append(doc)
     return out
 
@@ -197,12 +187,9 @@ def addPageNumbers(doc: fitz.Document, split = False, start = 0) -> None:
         else:
             page.add_freetext_annot(bot_rect, str(pg), fontname= font) # type: ignore
 
-def strtobool (val) -> bool:
+def strtobool (val: str) -> bool:
     '''
     Convert a string representation of truth to true (1) or false (0).
-    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
-    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
-    'val' is anything else.
     '''
     val = val.lower()
     if val in ('y', 'yes', 't', 'true', 'on', '1'):
@@ -213,6 +200,12 @@ def strtobool (val) -> bool:
         raise ValueError("invalid truth value %r" % (val,))
 
 if __name__ == "__main__":
+    test = fitz.open("test_files\\splitTopBottom\\input.pdf")
+    # test = fitz.open("test_files\\left_align\\input.pdf")
+    split = splitTopBottom(leftAlign(test))
+    saveDocument(split, "test_files\\splitTopBottom\\truth.pdf", prefix = '')
+    # saveDocument(leftAlign(test), "test_files\\test.pdf")
+    sys.exit()
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('filename', type=str)
     parser.add_argument('margins', nargs=4, help="Top, left, right, and bottom margins", type= int)
@@ -247,11 +240,9 @@ if __name__ == "__main__":
             saveDocument(rightAlign(doc), path, prefix = 'fp_')
     elif args.left_align_only:
         for path, doc in zip(files, docs):
-            saveDocument(leftAlign(doc), path)
+            print(f"left align {path}")
+            saveDocument(leftAlign(doc), path, prefix = 'l_')
     elif (len(sys.argv) > 1):
         main(**vars(args))
     else:
         main()
-    
-    # resizeDocument(fitz.open(parser.parse_args().filename))
-

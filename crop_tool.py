@@ -1,14 +1,12 @@
 from copy import copy
 import os
 import tkinter as tk
-from tkinter import font
-import tkinter.filedialog
 from typing import Any, Callable
 import fitz
-from fontTools.ttLib.tables.S__i_l_f import Pass
 import pdf_reader as reader
 import my_file_utils as utils
 from PIL import Image,ImageTk
+
 MYFONT = ('Arial',16)
 PADDING = 10
 RATIO = 8.5/11
