@@ -344,7 +344,7 @@ if __name__ == "__main__":
                         If using combine, duplicate parts will be included 
                         multiple times in final output file''')
     
-    parser.add_argument('output',nargs='?',type=str,default='.\\test',
+    parser.add_argument('output',nargs='?',type=str,default='.\\pdfs\\folder',
                         help = '''Filepath to folder to store output files''')
     
     parser.add_argument('-c',dest ='combine',action='store_true',
@@ -377,9 +377,9 @@ if __name__ == "__main__":
     if args.combine: 
         reader.saveDocument(packet.buildDocument(), output_folder + "\\all_parts.pdf", prefix = '')
     if args.move: packet.moveFilesByPart(output_folder)
-    # compress = True
-    # group_docs = packet.getGroupPartDocs(compressed= compress)
-    # for part, doc in group_docs.items():
-    #     addPageNumbers(doc, compress, start = 1)
-    #     reader.saveDocument(doc, output_folder + "\\" + str(part) + '.pdf', prefix = '')
+    compress = False
+    group_docs = packet.getGroupPartDocs(compressed= compress)
+    for part, doc in group_docs.items():
+        reader.addPageNumbers(doc, compress, start = 1)
+        reader.saveDocument(doc, output_folder + "\\" + str(part) + '.pdf', prefix = '')
     
