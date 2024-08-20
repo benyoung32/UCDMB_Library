@@ -1,7 +1,6 @@
 from math import ceil
 import shutil
 
-from sympy import false
 import pdf_reader as reader
 import tkinter as tk
 import fitz
@@ -277,7 +276,7 @@ def findPartFiles(folder_paths:list[str],parts:list[Part]) -> dict[Part, list[st
     for path in folder_paths:
         folders = utils.getSubFolders([path])
     for folder in folders:
-        files = utils.getSubFiles([folder], [],ignore_prefix= None, recursive=False)
+        files = utils.getSubFiles([folder], [],ignore_prefix= '', recursive=False)
         if len(files) == 0: # no files found
             print("no pdf files found: " + os.path.basename(os.path.normpath(folder)))
             continue
@@ -380,6 +379,6 @@ if __name__ == "__main__":
     # compress = True
     # group_docs = packet.getGroupPartDocs(compressed= compress)
     # for part, doc in group_docs.items():
-    #     addPageNumbers(doc, compress, start = 1)
+        # addPageNumbers(doc, compress, start = 1)
     #     reader.saveDocument(doc, output_folder + "\\" + str(part) + '.pdf', prefix = '')
     

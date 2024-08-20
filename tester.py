@@ -11,7 +11,7 @@ import pdf_grouper as grouper
 import pdf_reader as reader
 import pdf_splitter as splitter 
 
-h = "test_files\\"
+TEST_FOLDER = "test_files\\"
 PASS = ''
 def are_pdfs_equal(pdf1: fitz.Document, pdf2: fitz.Document) -> str:
     desc = str(pdf1) + " and " + str(pdf2)
@@ -38,10 +38,11 @@ class doc_tests(unittest.TestCase):
     def test_pdf_reader(self) -> None:
         tests = [("left_align", reader.leftAlign), 
                  ("right_align", reader.rightAlign),
-                 ("splitTopBottom", reader.splitTopBottom)]
+                 ("splitTopBottom", reader.splitTopBottom),
+                 ("")]
         for test in tests:
-            doc = fitz.open(h + test[0] + "\\input.pdf")
-            truth = fitz.open(h + test[0] + "\\truth.pdf")
+            doc = fitz.open(TEST_FOLDER + test[0] + "\\input.pdf")
+            truth = fitz.open(TEST_FOLDER + test[0] + "\\truth.pdf")
             doc = test[1](doc)
             msg = are_pdfs_equal(doc, truth)
             self.assertTrue(msg == PASS, msg)
