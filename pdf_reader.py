@@ -150,11 +150,12 @@ def openDocuments(filenames: list[str]) -> list[fitz.Document]:
         try:
             if not os.path.exists(filename): raise RuntimeError
             doc = fitz.open(filename)
+            out.append(doc)
         except:
-            print("unable to open file: ", filename)
-            print(fitz.TOOLS.mupdf_warnings())
-            sys.exit(":(")
-        out.append(doc)
+            if filename != grouper.PATH_ERROR:
+                print("unable to open file: ", filename)
+                print(fitz.TOOLS.mupdf_warnings())
+                sys.exit(":(")
     return out
 
 def saveDocument(doc: fitz.Document, filename:str, prefix = prefix, close = True) -> None: 
@@ -181,7 +182,7 @@ def addPageNumbers(doc: fitz.Document, split = False, start = 0) -> None:
         i += 1
         if (i <= start): continue
         pg = i - start
-        page.insert_textbox(top_rect, str(pg), fontname= font) # type: ignore
+        page.add_freetext_annot(top_rect, str(pg), fontname= font) # type: ignore
         if split:
             page.add_freetext_annot(bot_rect, str(pg + doc.page_count), fontname= font) # type: ignore
         else:
