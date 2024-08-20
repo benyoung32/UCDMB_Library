@@ -1,0 +1,6 @@
+{
+    "exclude": [
+        "exec_builder\\**",
+        "test_files\\**"
+    ]
+}
