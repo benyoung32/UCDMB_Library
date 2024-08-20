@@ -143,7 +143,7 @@ class Packet:
             part_docs = list(self.docs[part])
             for doc in part_docs:
                 final_doc.insert_pdf(doc)
-        reader.saveDocument(final_doc,output_path, '')
+        reader.saveDocument(final_doc,output_path)
 
     def getGroupPartDocs(self, compressed = False) -> dict[Part, fitz.Document]:
         out = {}
@@ -319,17 +319,11 @@ def createPartDictFromPaths(paths:list[str], parts:list[Part]) -> dict[Part,str]
         if found_parts[part] == []:
             print('|| WARNING || no file found for:', part,
                     'in folder:','\"' + os.path.dirname(os.path.normpath(paths[0])) + '\"')
-            found_parts[part] = PATH_ERROR
+            found_parts[part] = [PATH_ERROR]
     
     return found_parts
 
 if __name__ == "__main__":
-    # files = utils.getSubFiles(["pdfs\\folder"], recursive=false)
-    # for file in files:
-    #     test = fitz.open(file)
-    #     reader.addPageNumbers(test, start = 1)
-    #     reader.saveDocument(test, "pdfs\\folder\\pagenums\\" + os.path.basename(file), prefix = '')
-    # os.sysexit()
     parser = argparse.ArgumentParser(sys.argv[0])
     parser.add_argument('songs',type=str,nargs='?', default = '',
                         help = '''Filepath to text file containing on 
@@ -374,11 +368,11 @@ if __name__ == "__main__":
         # packet.moveFilesBySong(output_folder + "\\songs")
 
     if args.combine: 
-        reader.saveDocument(packet.buildDocument(), output_folder + "\\all_parts.pdf", prefix = '')
+        reader.saveDocument(packet.buildDocument(), output_folder + "\\all_parts.pdf")
     if args.move: packet.moveFilesByPart(output_folder)
     compress = False
     group_docs = packet.getGroupPartDocs(compressed= compress)
     for part, doc in group_docs.items():
         reader.addPageNumbers(doc, compress, start = 1)
-        reader.saveDocument(doc, output_folder + "\\" + str(part) + '.pdf', prefix = '')
+        reader.saveDocument(doc, output_folder + "\\" + str(part) + '.pdf')
     

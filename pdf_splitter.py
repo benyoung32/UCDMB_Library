@@ -92,11 +92,8 @@ def split_pdf(filepath:str,last_pages:list[bool],
     directory = os.path.dirname(filepath)
     base = os.path.basename(filepath).strip('.pdf')
     if not separate_folders:
-        new_folder = directory + '\\' + base
-        try:
-            os.mkdir(new_folder)
-        except:
-            pass
+        try: os.mkdir(directory + '\\' + base)
+        except: pass
     song_counter = 0 # counter for where you are in page_titles array
     for k in range(len(last_pages)):
         new_doc.insert_pdf(doc,from_page=k, to_page=k)
@@ -108,16 +105,13 @@ def split_pdf(filepath:str,last_pages:list[bool],
             # new_doc[0].add_freetext_annot(new_doc[0].bound() - (-30,-30,100,100),str(k+1),text_color=(0,0,1),fontsize=22)
             if separate_folders:
                 new_folder = directory + '\\' + extra
-                try:
-                    os.mkdir(new_folder)
-                except:
-                    pass
-                reader.saveDocument(new_doc, new_folder + '\\' + extra + ' - ' + base + '.pdf', '')
+                try: os.mkdir(new_folder)
+                except: pass
+                reader.saveDocument(new_doc, new_folder + '\\' + extra + ' - ' + base + '.pdf')
             else: 
-                if add:
-                    reader.saveDocument(new_doc, new_folder + '\\' + base + ' - ' + extra + '.pdf', '') # save and close old doc
-                else:
-                    reader.saveDocument(new_doc, new_folder + '\\' + extra + '.pdf', '')
+                new_folder = directory + '\\' + base
+                if add: reader.saveDocument(new_doc, new_folder + '\\' + base + ' - ' + extra + '.pdf') # save and close old doc
+                else: reader.saveDocument(new_doc, new_folder + '\\' + extra + '.pdf')
             new_doc = fitz.open()
             # print(last_pages[k], ', ' + str(k))
             song_counter = song_counter + 1

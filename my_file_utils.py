@@ -11,7 +11,7 @@ def printDict(dict):
     '''
     for k,v in dict.items():
         print(k, end = ':\n')
-        if v is list:
+        if isinstance(v, list):
             for n in v:
                 print(n)
         else:
@@ -45,7 +45,7 @@ def openFolder() -> str:
     :return: Filepath to selected folder
     '''
     # get file info
-    answer = tk.filedialog.askdirectory(
+    answer = tk.filedialog.askdirectory( # type: ignore
             initialdir=os.getcwd(),
             title="Please select a folder:")
     # return filepath
@@ -65,6 +65,9 @@ def getSubFiles(paths: list[str], files:list[str] = [],
     :param recursive: If true, recurse into subfolders as well 
     :return: List of pdf files found
     '''
+    if not isinstance(paths, list):
+        print(f"getSubFiles input must be a list, not {paths}")
+        return []
     for f in paths:
         if os.path.exists(f):
             if os.path.isdir(f):
@@ -74,6 +77,8 @@ def getSubFiles(paths: list[str], files:list[str] = [],
                     getSubFiles(glob.glob(f + '/*.pdf'),files, ignore_prefix)
             if '.pdf' in f and (not ignore_prefix or ignore_prefix not in f):
                 files.append(f)
+        else:
+            print(f'{f} - file not found')
     return files
 
 def getSubFolders(folderpaths: list[str], folders: list[str] = []) -> list[str]:
@@ -85,11 +90,14 @@ def getSubFolders(folderpaths: list[str], folders: list[str] = []) -> list[str]:
     :param folders: list of folders found already (for recursion)
     :return: List of found folder paths
     '''
+    if not isinstance(folderpaths, list):
+        print(f"getSubFolders input must be a list, not {folderpaths}")
+        return []
     for f in folderpaths:
         if os.path.exists(f):
             if os.path.isdir(f):
                 folders.append(f)
                 getSubFolders(glob.glob(f + "/*"), folders)
         else:
-            print(f, '- invalid path')
+            print(f'{f} - file not found')
     return folders

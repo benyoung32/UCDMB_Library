@@ -8,7 +8,7 @@ ERROR_PART = 'nan 0'
 PART_NUMBERS = ['1','2','3','4','5']
 PART_NUMBERS_FANCY = ['1st','2nd','3rd','4th','5th']
 KEY = ['bb', 'f', 'eb', 'ab', 'c']
-DECORATOR = ['horn', 'sax', 'saxophone', 'hn', 'drum', 'drums']
+DECORATOR = ['horn', 'sax', 'saxophone', 'hn', 'drum', 'drums', 'percussion', 'bc', 'tc', 'perc']
 REMOVED_CHARS = ['\\','/',':','.','_','-','&','+','pdf']
 FLUFF = ['in']
 
@@ -23,13 +23,13 @@ else:
 
 
 f = open(ALIAS_FILE)
-alias = json.load(f)
+JSON_ALIAS = json.load(f)
 f = open(SUBSTITUTION_FILE)
 subs = json.load(f)
-alias_flat = []# all alias words in list
-for k,v in alias.items():
-    for s in v:
-        alias_flat.append(s)
+ALIAS_FLAT: list[str] = [] # all alias words in list
+for _, aliases in JSON_ALIAS.items():
+    for alias in aliases:
+        ALIAS_FLAT.append(alias)
 
 class Part:
     def __init__(self, raw_string: str) -> None:
@@ -62,7 +62,7 @@ class Part:
                 continue
             else:
                 remainder.append(word)
-        for instrument, aliases in alias.items():
+        for instrument, aliases in JSON_ALIAS.items():
             for a in aliases:
                 for word in remainder:
                     test_name = ' '.join([word, self.decorator]).strip()

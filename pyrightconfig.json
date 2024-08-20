@@ -1,6 +1,9 @@
 {
     "exclude": [
-        "exec_builder\\**",
-        "test_files\\**"
+        "exec_builder\\**"
+    ],
+    "include": [
+        ".\\*.py",
+        ".\\exec_builder\\**"
     ]
 }

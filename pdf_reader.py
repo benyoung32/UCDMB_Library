@@ -158,7 +158,7 @@ def openDocuments(filenames: list[str]) -> list[fitz.Document]:
                 sys.exit(":(")
     return out
 
-def saveDocument(doc: fitz.Document, filename:str, prefix = prefix, close = True) -> None: 
+def saveDocument(doc: fitz.Document, filename:str, prefix = '', close = True) -> None: 
     new_filename = os.path.dirname(filename) + "\\" + prefix + os.path.basename(filename)
     doc.save(new_filename, deflate = True, 
             deflate_images = True, garbage = 4, clean = True)
@@ -204,7 +204,7 @@ if __name__ == "__main__":
     test = fitz.open("test_files\\splitTopBottom\\input.pdf")
     # test = fitz.open("test_files\\left_align\\input.pdf")
     split = splitTopBottom(leftAlign(test))
-    saveDocument(split, "test_files\\splitTopBottom\\truth.pdf", prefix = '')
+    saveDocument(split, "test_files\\splitTopBottom\\truth.pdf")
     # saveDocument(leftAlign(test), "test_files\\test.pdf")
     sys.exit()
     parser = argparse.ArgumentParser(sys.argv[0])

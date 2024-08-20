@@ -1,18 +1,37 @@
+from pyclbr import Function
+from typing import Callable
 import unittest
 import sys
 import os
 import fitz # type: ignore
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import pdf_grouper as grouper
-
-sys.path.append("C:\\Users\\benyo\\Code\\UCDMB_Library\\test_files\\**")
 import pdf_grouper as grouper
 import pdf_reader as reader
 import pdf_splitter as splitter 
+import my_file_utils as utils
+from part import *
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append("C:\\Users\\benyo\\Code\\UCDMB_Library\\test_files\\**")
 
 TEST_FOLDER = "test_files\\"
 PASS = ''
+
+class FunctionTest:
+    def __init__(self, test_name: str, input: Any, functions: list[Callable]) -> None:
+        self.test_name = test_name
+        self.functions = functions
+        self.input = input
+        self.result = None
+
+    def run(self) -> Any:
+        result = self.input
+        for func in self.functions:
+            result = func(result)
+        self.result = result
+        return result
+
+# returns PASS msg if two pdfs are equal, else returns error msg describing the first difference found 
 def are_pdfs_equal(pdf1: fitz.Document, pdf2: fitz.Document) -> str:
     desc = str(pdf1) + " and " + str(pdf2)
     if not pdf1.page_count == pdf2.page_count: return desc + " have different page count"
@@ -23,29 +42,96 @@ def are_pdfs_equal(pdf1: fitz.Document, pdf2: fitz.Document) -> str:
         if not r1.width == r2.width: return desc + " are not the same width"
         if not r1.height == r2.height: return desc + " are not the same height"
         
-        # check every pixel is the same
         pix1 = p1.get_pixmap()
         pix2 = p2.get_pixmap()
         mismatch = 0 
-        for x in range(int(pix1.width)):
-            for y in range(int(pix1.height)): 
+        ''' how many pixels to skip between each check? Significantly effects runtime eg:
+            PRECISION = 1 -> check every pixel
+            PRECISION = 10 -> check every 10th pixel
+        '''
+        PRECISION = 4 
+        for x in range(0, int(pix1.width), PRECISION):
+            for y in range(0, int(pix1.height), PRECISION): 
                 if not pix1.pixel(x, y) == pix2.pixel(x,y ): 
                     mismatch += 1
                     return desc + " differ at pixel " + str(x) + ", " + str (y)
-    return PASS # return good message
+    return PASS
+
+def create_json_truth(tests: list[FunctionTest], output_path: str) -> dict[str, str]:
+    json_out = {}
+    for test in tests:
+        json_out[test.test_name] = test.run()
+    out_file = open(output_path, "+w")
+    json.dump(json_out, out_file, indent = 4)
+    out_file.close()
+    return json_out
+
+def add_to_json(json_filepath: str, add: dict[str, str]) -> dict[str, str]:
+    with open(json_filepath, "+a") as json_file:
+        json_out = json.load(json_file)
+        for k, v in add.items():
+            json_out[k] = v
+        json.dump(json_out, json_file)
+    return json_out
 
 class doc_tests(unittest.TestCase):
     def test_pdf_reader(self) -> None:
-        tests = [("left_align", reader.leftAlign), 
-                 ("right_align", reader.rightAlign),
-                 ("splitTopBottom", reader.splitTopBottom),
-                 ("")]
+        tests = [("left_align", [reader.leftAlign]), 
+                 ("right_align", [reader.rightAlign]),
+                 ("splitTopBottom", [reader.leftAlign, reader.splitTopBottom])
+                 ]
         for test in tests:
-            doc = fitz.open(TEST_FOLDER + test[0] + "\\input.pdf")
-            truth = fitz.open(TEST_FOLDER + test[0] + "\\truth.pdf")
-            doc = test[1](doc)
+            doc = fitz.open(TEST_FOLDER + "\\doc_tests\\" + test[0] + "\\input.pdf")
+            truth = fitz.open(TEST_FOLDER + "\\doc_tests\\" + test[0] + "\\truth.pdf")
+            for func in test[1]:
+                doc = func(doc)
             msg = are_pdfs_equal(doc, truth)
+            reader.saveDocument(doc, TEST_FOLDER + "\\doc_tests\\" + test[0] + "\\result.pdf",prefix='')
             self.assertTrue(msg == PASS, msg)
 
-if __name__ == '__main__':
-    unittest.main()
+class part_tests(unittest.TestCase):
+    def test_part_creation(self) -> None:
+        for part_name, aliases in JSON_ALIAS.items():
+            part_truth = Part(part_name)
+            for alias in aliases:
+                part_test = Part(alias)
+                with self.subTest(msg=f'checking {part_name}'): 
+                    self.assertTrue(part_truth == part_test, f"{alias} does not match to {part_name}")
+
+class grouper_tests(unittest.TestCase):
+    def test_grouper_functions(self) -> None:
+        truth_file = f"{TEST_FOLDER}grouper_tests\\truths.json"
+        tests = [
+            FunctionTest("getPartFromFilepath", [f"{TEST_FOLDER}example_subfolder"], 
+                         [utils.getSubFiles, lambda a : list(map(getPartFromFilepath, a))])
+        ]
+        create_json_truth(tests, truth_file)
+        
+
+class utils_tests(unittest.TestCase):
+    def test_good_inputs(self) -> None:
+        truth_file = f"{TEST_FOLDER}util_tests\\truths.json"
+        tests = [
+            FunctionTest("getSubFiles", [f"{TEST_FOLDER}example_subfolder"], [utils.getSubFiles]),
+            FunctionTest("getSubFolders", [f"{TEST_FOLDER}example_subfolder"], [utils.getSubFolders]),
+            FunctionTest("readFile1", f"{TEST_FOLDER}util_tests\\test_file1.txt", [utils.readFile]),
+            FunctionTest("readFile2", f"{TEST_FOLDER}util_tests\\test_file2.txt", [utils.readFile]),
+        ]
+        # create_json_truth(tests, truth_file)
+        with open(truth_file) as f:
+            truth = json.load(f)
+            # self.maxDiff = None
+            for test in tests:
+                self.assertEqual(test.run(), truth[test.test_name], f"{test.test_name} did not have the expected output")
+    
+    def test_bad_inputs(self) -> None:
+        tests = [
+            FunctionTest("getSubFiles bad filename", "hi :)", [utils.getSubFiles]),
+            FunctionTest("getSubFolder bad filename", "hi :)", [utils.getSubFolders]),
+            FunctionTest("getSubFiles non-existing file", ["no file"], [utils.getSubFiles]),
+            FunctionTest("getSubFolders non-existing file", ["no file"], [utils.getSubFolders])
+        ]
+        for test in tests:
+            test.run()
+
+unittest.main()

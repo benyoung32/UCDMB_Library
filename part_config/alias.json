@@ -3,11 +3,7 @@
         "flute",
         "flutes",
         "fl",
-        "flute/piccolo",
-        "fl/picc",
-        "piccolo-flute",
-        "piccolo flute",
-        "flute piccolo"
+        "fl/picc"
     ],
     "piccolo": [
         "piccolo",
@@ -117,7 +113,7 @@
     "xylophone": [
         "xylophone"
     ],
-    "aux perc": [
+    "auxillary percussion": [
         "auxillary",
         "aux perc",
         "auxillary percussion",
