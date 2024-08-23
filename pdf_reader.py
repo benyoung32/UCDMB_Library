@@ -35,7 +35,7 @@ def openCropSaveDocs(filepaths: list[str],
     :return: Returns list of paths for the newly created pdf files
     '''
     new_files = []
-    docs = openDocuments(filepaths, size='letter')
+    docs = openDocuments(filepaths)
     new_folder = os.path.dirname(filepaths[0]) + '\\Printable Parts'
     try:
         os.mkdir(new_folder)
@@ -64,14 +64,14 @@ def splitTopBottom(doc: fitz.Document) -> fitz.Document:
     out = fitz.Document(rect=FORMAT)
     for page in doc:
         r = page.bound()
-        insertImageTopBottom(out.new_page(width = FORMAT.width, height = FORMAT.height), 
+        insertImageTopBottom(out.new_page(width = FORMAT.width, height = FORMAT.height),  # type: ignore
                              getPixmap(page, clip = fitz.Rect(0, 0, r.x1*CW, r.y1 / 2)))
-        insertImageTopBottom(out.new_page(width=FORMAT.width,height=FORMAT.height), 
+        insertImageTopBottom(out.new_page(width=FORMAT.width,height=FORMAT.height),  # type: ignore
                              getPixmap(page, clip = fitz.Rect(0, r.y1 / 2, r.x1*CW, r.y1)))
     return out
 
 def createCroppedDocument(src:fitz.Document, expand:bool=False,
-                          margins:list[int] = [0, 0, 0, 0]) -> fitz.Document:
+                          margins:list[int] = [0, 0, 0, 0], **kwargs) -> fitz.Document:
     '''
     From source document 'src', crop the page according to 'margins' 
     and insert cropped page as image into output document. 
@@ -149,7 +149,7 @@ def openDocuments(filenames: list[str]) -> list[fitz.Document]:
     for filename in filenames:
         try:
             if not os.path.exists(filename): raise RuntimeError
-            doc = fitz.open(filename)
+            doc = fitz.open(filename) # type: ignore
             out.append(doc)
         except:
             if filename != grouper.PATH_ERROR:

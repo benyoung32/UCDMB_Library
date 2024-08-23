@@ -81,18 +81,20 @@ def getSubFiles(paths: list[str], files:list[str] = [],
             print(f'{f} - file not found')
     return files
 
-def getSubFolders(folderpaths: list[str], folders: list[str] = []) -> list[str]:
+def getSubFolders(folderpaths: list[str], folders = None) -> list[str]:
     '''
     Search through each path in folderpaths for subfolders.
     Append subfolders to folders list, and recursively search subfolders
     See also, getSubFiles
-    :param folderpaths: list of folders to search throuhg
+    :param folderpaths: list of folders to search through
     :param folders: list of folders found already (for recursion)
     :return: List of found folder paths
     '''
     if not isinstance(folderpaths, list):
         print(f"getSubFolders input must be a list, not {folderpaths}")
         return []
+    if not folders:
+        folders = []
     for f in folderpaths:
         if os.path.exists(f):
             if os.path.isdir(f):

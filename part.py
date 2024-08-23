@@ -22,10 +22,10 @@ else:
     SUBSTITUTION_FILE = 'part_config/substitution.json'
 
 
-f = open(ALIAS_FILE)
-JSON_ALIAS = json.load(f)
-f = open(SUBSTITUTION_FILE)
-subs = json.load(f)
+with open(ALIAS_FILE) as f:
+    JSON_ALIAS = json.load(f)
+with open(SUBSTITUTION_FILE) as f:
+    subs = json.load(f)
 ALIAS_FLAT: list[str] = [] # all alias words in list
 for _, aliases in JSON_ALIAS.items():
     for alias in aliases:
@@ -48,6 +48,7 @@ class Part:
         self.decorator = ''
         self.key = ''
         if raw_string == '': return
+        raw_string = replaceSubstitions(raw_string)
         remainder = []
         for word in raw_string.lower().strip().split():
             if word in PART_NUMBERS or word in PART_NUMBERS_FANCY:
@@ -93,6 +94,14 @@ class Part:
 
     def __repr__(self) -> str:
         return self.__str__()
+    
+def replaceSubstitions(input: str) -> str:
+    for sub in [
+        "Piccolo-Flute",
+        "Flute/Piccolo",
+    ]:
+        input = input.replace(sub, "Flute")
+    return input
 
 def getPartFromFilepath(input:str) -> Part:
     '''

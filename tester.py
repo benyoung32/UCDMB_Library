@@ -1,3 +1,4 @@
+from ast import Pass
 from pyclbr import Function
 from typing import Callable
 import unittest
@@ -45,7 +46,7 @@ def are_pdfs_equal(pdf1: fitz.Document, pdf2: fitz.Document) -> str:
         pix1 = p1.get_pixmap()
         pix2 = p2.get_pixmap()
         mismatch = 0 
-        ''' how many pixels to skip between each check? Significantly effects runtime eg:
+        ''' how many pixels to check? Significantly effects runtime. eg:
             PRECISION = 1 -> check every pixel
             PRECISION = 10 -> check every 10th pixel
         '''
@@ -61,9 +62,8 @@ def create_json_truth(tests: list[FunctionTest], output_path: str) -> dict[str, 
     json_out = {}
     for test in tests:
         json_out[test.test_name] = test.run()
-    out_file = open(output_path, "+w")
-    json.dump(json_out, out_file, indent = 4)
-    out_file.close()
+    with open(output_path, "+w") as out_file:
+        json.dump(json_out, out_file, indent = 4)
     return json_out
 
 def add_to_json(json_filepath: str, add: dict[str, str]) -> dict[str, str]:
@@ -81,8 +81,8 @@ class doc_tests(unittest.TestCase):
                  ("splitTopBottom", [reader.leftAlign, reader.splitTopBottom])
                  ]
         for test in tests:
-            doc = fitz.open(TEST_FOLDER + "\\doc_tests\\" + test[0] + "\\input.pdf")
-            truth = fitz.open(TEST_FOLDER + "\\doc_tests\\" + test[0] + "\\truth.pdf")
+            doc = fitz.open(TEST_FOLDER + "\\doc_tests\\" + test[0] + "\\input.pdf") # type: ignore
+            truth = fitz.open(TEST_FOLDER + "\\doc_tests\\" + test[0] + "\\truth.pdf") # type: ignore
             for func in test[1]:
                 doc = func(doc)
             msg = are_pdfs_equal(doc, truth)
@@ -97,16 +97,49 @@ class part_tests(unittest.TestCase):
                 part_test = Part(alias)
                 with self.subTest(msg=f'checking {part_name}'): 
                     self.assertTrue(part_truth == part_test, f"{alias} does not match to {part_name}")
+    
+    def test_drum_case(self) -> None:
+        tests = [
+            ("snare", "Drum - Snare"),
+            ("bass", "Drum - Bass"),
+            ("glock", "Drum - Glock"),
+            ("glock", "Drums - Glocks"),
+            ("quads", "Drum - Quads"),
+        ]
+        for test in tests:
+            part_name = test[0]
+            part_truth = Part(part_name)
+            part_test = Part(test[1])
+            with self.subTest(msg=f'checking {part_name}'): 
+                self.assertTrue(part_truth == part_test, f"{test[1]} does not match to {part_name}")
 
 class grouper_tests(unittest.TestCase):
-    def test_grouper_functions(self) -> None:
+    def test_part_from_filepath(self) -> None:
+
         truth_file = f"{TEST_FOLDER}grouper_tests\\truths.json"
-        tests = [
-            FunctionTest("getPartFromFilepath", [f"{TEST_FOLDER}example_subfolder"], 
-                         [utils.getSubFiles, lambda a : list(map(getPartFromFilepath, a))])
-        ]
-        create_json_truth(tests, truth_file)
-        
+        test = FunctionTest("getPartFromFilepath", [f"{TEST_FOLDER}example_subfolder"], 
+                         [utils.getSubFiles, 
+                          lambda a : list(map(str, map(getPartFromFilepath, a)))]),
+        with open(truth_file) as f:
+            truth = json.load(f)
+            self.assertEqual(test[0].run(), truth[test[0].test_name]) 
+
+    def test_part_dict(self) -> None:
+        pass
+        parts = utils.readFile(f"{TEST_FOLDER}parts.txt")
+        parts = [Part(s) for s in parts if s != ERROR_PART]
+        truth_file = f"{TEST_FOLDER}grouper_tests\\file_dict.json"
+        result = grouper.findPartFiles([f"{TEST_FOLDER}example_subfolder\\dir1"], parts)
+        with open(truth_file) as f:
+            json_out = {}
+            truth = json.load(f)
+            for k, v in result.items():
+                json_out[str(k)] = v
+            self.assertEqual(json_out[str(k)], truth[str(k)], 
+                f"{json_out[str(k)]} does not match {truth[str(k)]} for part: {str(k)}")
+            truth["test result"] = json_out
+        with open(truth_file, "w") as f:
+            json.dump(truth, f, indent = 4)
 
 class utils_tests(unittest.TestCase):
     def test_good_inputs(self) -> None:

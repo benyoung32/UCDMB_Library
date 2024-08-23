@@ -1,6 +1,7 @@
 from copy import copy
 import os
 import tkinter as tk
+from tkinter import filedialog
 from typing import Any, Callable
 import fitz
 import pdf_reader as reader
@@ -234,7 +235,7 @@ class CropTool(tk.Toplevel):
 
     def createPreviewWindow(self) -> None:
         args = self.getSettingsDict()
-        doc = reader.openDocuments([self.filepath],size='a4')[0]
+        doc = reader.openDocuments([self.filepath])[0]
         # alter document using settings 
         newdoc = reader.createCroppedDocument(doc,**args)
         # create new window to show altered document

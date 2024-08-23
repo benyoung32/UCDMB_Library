@@ -3,7 +3,8 @@
         "flute",
         "flutes",
         "fl",
-        "fl/picc"
+        "fl/picc",
+        "Flute/Piccolo"
     ],
     "piccolo": [
         "piccolo",
@@ -81,17 +82,27 @@
     "glockenspiel": [
         "glockenspiel",
         "glock",
-        "glocks"
+        "glocks",
+        "glock drum",
+        "glock drums",
+        "glocks drum",
+        "glocks drums"
     ],
     "snare drum": [
         "snare",
         "snare drum",
+        "snare drums",
+        "snares drum",
+        "snares drums",
         "snares"
     ],
     "tenor drum": [
         "quads",
         "quad",
         "quad drums",
+        "quad drum",
+        "quads drums",
+        "quads drum",
         "tenor drum",
         "tenor drums",
         "tenors"
@@ -105,6 +116,8 @@
     "cymbal": [
         "cymbal",
         "cymbals",
+        "cymbals drums",
+        "cymbal drum",
         "cym"
     ],
     "electric bass": [

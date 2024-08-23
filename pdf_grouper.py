@@ -123,8 +123,11 @@ class Packet:
         return combined_doc
 
     def getSongCount(self) -> int:
-        return max(len(docs) for docs in self.docs.values())
-
+        songs = 0
+        for part in self.unique_parts:
+            songs = max(len(self.getPartDocs(part)), songs)
+        return songs
+    
     def getPartDocs(self, part: Part) -> list[fitz.Document]:
         return reader.openDocuments(self.filepaths[part])
 
@@ -283,9 +286,7 @@ def findPartFiles(folder_paths:list[str],parts:list[Part]) -> dict[Part, list[st
         for k,v in createPartDictFromPaths(files,parts).items():
             if k not in part_dict.keys():
                 part_dict[k] = []
-            if type(v) is list: 
-                for subpath in v: part_dict[k].append(subpath)
-            else: part_dict[k].append(v)
+            for subpath in v: part_dict[k].append(subpath)
     return part_dict
 
 def createPartDictFromPaths(paths:list[str], parts:list[Part]) -> dict[Part,str]:
@@ -307,14 +308,13 @@ def createPartDictFromPaths(paths:list[str], parts:list[Part]) -> dict[Part,str]
     for part in parts:
         # no part number specified, return all parts
         found_parts[part] = []
-        if part.number == str(0): search = [0, *PART_NUMBERS]
-        else: search = range(int(part.number), 0-1, -1)
-        for n in search:
+        if part.number == str(0): number_range = [0, *PART_NUMBERS]
+        else: number_range = range(int(part.number), -1, -1)
+        for n in number_range:
             try_part = Part(part.instrument + " " + str(n))
             if try_part in part_path_dict.keys():
                 found_parts[part].append(part_path_dict[try_part]) 
                 if not part.number == str(0): break
-        
         # nothing was found
         if found_parts[part] == []:
             print('|| WARNING || no file found for:', part,
