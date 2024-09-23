@@ -86,7 +86,8 @@
         "glock drum",
         "glock drums",
         "glocks drum",
-        "glocks drums"
+        "glocks drums",
+        "glockenspiel drums"
     ],
     "snare drum": [
         "snare",
@@ -111,6 +112,7 @@
         "basses",
         "bass drum",
         "bass drums",
+        "basses drums",
         "bass"
     ],
     "cymbal": [

@@ -278,15 +278,15 @@ def findPartFiles(folder_paths:list[str],parts:list[Part]) -> dict[Part, list[st
     # iterate over subfolders
     for path in folder_paths:
         folders = utils.getSubFolders([path])
-    for folder in folders:
-        files = utils.getSubFiles([folder], [],ignore_prefix= '', recursive=False)
-        if len(files) == 0: # no files found
-            print("no pdf files found: " + os.path.basename(os.path.normpath(folder)))
-            continue
-        for k,v in createPartDictFromPaths(files,parts).items():
-            if k not in part_dict.keys():
-                part_dict[k] = []
-            for subpath in v: part_dict[k].append(subpath)
+        for folder in folders:
+            files = utils.getSubFiles([folder], [],ignore_prefix= '', recursive=False)
+            if len(files) == 0: # no files found
+                print("no pdf files found: " + os.path.basename(os.path.normpath(folder)))
+                continue
+            for k,v in createPartDictFromPaths(files,parts).items():
+                if k not in part_dict.keys():
+                    part_dict[k] = []
+                for subpath in v: part_dict[k].append(subpath)
     return part_dict
 
 def createPartDictFromPaths(paths:list[str], parts:list[Part]) -> dict[Part,str]:
@@ -361,7 +361,7 @@ if __name__ == "__main__":
         parts = utils.readFile(args.parts)
         parts = [Part(s) for s in parts if s != ERROR_PART]
         songs = utils.readFile(args.songs)
-        
+        print(songs)
         filepaths = findPartFiles(songs, parts)
         packet = Packet(parts, filepaths)
         packet.saveGroupJSON(output_folder + "\\groups.json")
@@ -373,6 +373,6 @@ if __name__ == "__main__":
     compress = False
     group_docs = packet.getGroupPartDocs(compressed= compress)
     for part, doc in group_docs.items():
-        reader.addPageNumbers(doc, compress, start = 1)
+    #     reader.addPageNumbers(doc, compress, start = 1)
         reader.saveDocument(doc, output_folder + "\\" + str(part) + '.pdf')
     
