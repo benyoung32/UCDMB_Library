@@ -50,6 +50,7 @@ class Part:
         if raw_string == '': return
         raw_string = replaceSubstitions(raw_string)
         remainder = []
+        raw_string = raw_string.replace("(", "").replace(")", "")
         for word in raw_string.lower().strip().split():
             if word in PART_NUMBERS or word in PART_NUMBERS_FANCY:
                 for c in word:

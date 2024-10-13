@@ -71,7 +71,7 @@ def splitTopBottom(doc: fitz.Document) -> fitz.Document:
     return out
 
 def createCroppedDocument(src:fitz.Document, expand:bool=False,
-                          margins:list[int] = [0, 0, 0, 0], **kwargs) -> fitz.Document:
+                          margins:list[int] = [0, 0, 0, 0], rotate=0, **kwargs) -> fitz.Document:
     '''
     From source document 'src', crop the page according to 'margins' 
     and insert cropped page as image into output document. 
@@ -86,12 +86,10 @@ def createCroppedDocument(src:fitz.Document, expand:bool=False,
     doc = fitz.Document(rect=FORMAT)  # create new empty doc
     top_mg, left_mg, right_mg, bottom_mg = margins     # unpack margin array
     for page in src:
-        page.set_rotation(0)  # make sure page has no rotation
+        page.set_rotation(rotate)  # make sure page has no rotation
         r = page.mediabox
         new_page = doc.new_page(width = FORMAT.width, height = FORMAT.height) # type: ignore
         croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-bottom_mg)
-        # if full_size: croprect = fitz.Rect(left_mg, top_mg, r.x1-right_mg, r.y1-bottom_mg)
-        # else: croprect = fitz.Rect(r.x1 / 2 - top_mg, bottom_mg, r.x1 - right_mg, r.y1 - left_mg)
         page.set_cropbox(croprect)
         src_pix = getPixmap(page)  # type: ignore
         if expand:
